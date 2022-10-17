@@ -1757,7 +1757,7 @@ class Standard
     # set air loop availability controls and night cycle manager, after oa system added
     air_loop.setAvailabilitySchedule(hvac_op_sch)
     air_loop.setNightCycleControlType('CycleOnAny')
-    avail_mgr = air_loop.availabilityManager
+    avail_mgr = air_loop.availabilityManagers
     if avail_mgr.is_initialized
       avail_mgr = avail_mgr.get
       if avail_mgr.to_AvailabilityManagerNightCycle.is_initialized
@@ -2113,7 +2113,7 @@ class Standard
     # set air loop availability controls and night cycle manager, after oa system added
     air_loop.setAvailabilitySchedule(hvac_op_sch)
     air_loop.setNightCycleControlType('CycleOnAny')
-    avail_mgr = air_loop.availabilityManager
+    avail_mgr = air_loop.availabilityManagers
     if avail_mgr.is_initialized
       avail_mgr = avail_mgr.get
       if avail_mgr.to_AvailabilityManagerNightCycle.is_initialized
@@ -2727,7 +2727,7 @@ class Standard
       # set air loop availability controls and night cycle manager, after oa system added
       air_loop.setAvailabilitySchedule(hvac_op_sch)
       air_loop.setNightCycleControlType('CycleOnAny')
-      avail_mgr = air_loop.availabilityManager
+      avail_mgr = air_loop.availabilityManagers
       if avail_mgr.is_initialized
         avail_mgr = avail_mgr.get
         if avail_mgr.to_AvailabilityManagerNightCycle.is_initialized

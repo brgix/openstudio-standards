@@ -1360,8 +1360,8 @@ class Baseline9012013Test3 < Minitest::Test
     
     model.getAirLoopHVACs.each do |airloop|
       # check for night cycle manager for all airloops
-      if airloop.availabilityManager.is_initialized
-        availability_manager = airloop.availabilityManager.get
+      if airloop.availabilityManagers.is_initialized
+        availability_manager = airloop.availabilityManagers.get
         # check availability manager type
         unless availability_manager.to_AvailabilityManagerNightCycle.is_initialized
           failure_array << "Expected Availability Manager of Type NightCycle for Airloop #{airloop.name}"
