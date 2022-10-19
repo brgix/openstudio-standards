@@ -1895,7 +1895,11 @@ class Standard
       oa_system = air_loop_hvac.airLoopHVACOutdoorAirSystem.get
       controller_oa = oa_system.getControllerOutdoorAir
       controller_mv = controller_oa.controllerMechanicalVentilation
-      controller_mv.setSystemOutdoorAirMethod('VentilationRateProcedure')
+      if air_loop_hvac.model.version < OpenStudio::VersionString.new('3.3.0')
+        controller_mv.setSystemOutdoorAirMethod('VentilationRateProcedure')
+      else
+        controller_mv.setSystemOutdoorAirMethod('Standard62.1VentilationRateProcedureWithLimit')
+      end
       # Change the min flow rate in the controller outdoor air
       controller_oa.setMinimumOutdoorAirFlowRate(0.0)
     else
@@ -3856,5 +3860,14 @@ class Standard
     end
 
     return nil
+  end
+
+  # Minimum zone ventilation efficiency for multizone system outdoor
+  # air calculations
+  #
+  # @param air_loop_hvac [OpenStudio::Model::AirLoopHVAC] air loop
+  # @return [Float] minimum zone ventilation efficiency
+  def air_loop_hvac_minimum_zone_ventilation_efficiency(air_loop_hvac)
+    return 0.0
   end
 end
