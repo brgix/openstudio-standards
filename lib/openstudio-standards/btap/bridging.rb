@@ -1269,6 +1269,9 @@ module BTAP
       combo   = "#{perform.to_s}_#{quality.to_s}".to_sym # e.g. :lp_bad
       args    = {}     # initialize native TBD arguments
 
+      #
+      quality = :good if argh.key?(:quality) && argh[:quality] == :good
+
       # If uprating, initialize native TBD args.
       [:walls, :floors, :roofs].each do |stypes|
         next if @model[stypes].zero?
@@ -1340,11 +1343,11 @@ module BTAP
           end
 
           if unable
-            puts # TEMPORARY
-            puts "¨¨¨ combo : #{combo}"
-            puts args[:io_path][:psis]
-            TBD.logs.each { |lg| puts lg }
-            puts
+            # puts # TEMPORARY
+            # puts "¨¨¨ combo : #{combo}"
+            # puts args[:io_path][:psis]
+            # TBD.logs.each { |lg| puts lg }
+            # puts
           else
             comply = true
           end
@@ -1378,7 +1381,7 @@ module BTAP
             comply = false unless ok
             break          unless ok
 
-            # Check if within range of BTAP commercially options, for:
+            # Check if within range of BTAP commercially-available options, for:
             #   - walls, floors & roofs
             #   - specific to each space type
             @model[:sptypes].values.each do |sptype|
@@ -1438,12 +1441,12 @@ module BTAP
             args.delete(option)
             args.delete(ut    )
 
-            # Reset OpenStudio wall, floor and/or roof Uo factors to minimum
+            # Yet reset OpenStudio wall, floor and/or roof Uo factors to minimum
             # available BTAP (costed) values e.g.:
             #  - 0.130 for WOOD7
             #  - 0.080 for STEL2
             #  - 0.100 for all ROOFS
-            #    TO_DO ...
+            #    TO_DO ... !!!
           end
 
           break

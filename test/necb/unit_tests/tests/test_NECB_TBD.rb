@@ -12,6 +12,7 @@ class NECB_TBD_Tests < Minitest::Test
     @expected_results_file = File.join(__dir__, '../expected_results/necb_tbd_expected_results.json')
     @test_results_file = File.join(__dir__, '../expected_results/necb_tbd_test_results.json')
     @sizing_run_dir = File.join(@output_folder, 'sizing_folder')
+    @test_results_array = [] # test results storage array
 
     # Intial test condition.
     @test_passed = true
@@ -44,71 +45,66 @@ class NECB_TBD_Tests < Minitest::Test
 
     @fuels = ['Electricity']
 
-    @derating = [true]
+    # Optional PSI factor sets (e.g. optional for pre-NECB2017 templates. If
+    # :none, neither TBD 'uprating' nor 'derating' calculations (and subsequent
+    # modifications to generated OpenStudio models) are carried out. If instead
+    # set to :uprate, psi factor sets are determined iteratively, see:
+    #
+    #   lib/openstudio-standards/btap/bridging.rb
+    #
+    # Otherwise, :bad vs :good PSI factor sets refer to costed BTAP details.
+    @qualities = [:none, :bad, :good, :uprate]
 
-    @uprating = [true]
+    @templates.sort.each         do |template|
+      @epws.sort.each            do |epw     |
+        @buildings.sort.each     do |building|
+          @fuels.sort.each       do |fuel    |
+            @qualities.sort.each do |quality |
 
-    @test_results_array = [] # test results storage array
+              st = Standard.build(template)
+              model = st.model_create_prototype_model(template:template,
+                                           epw_file: epw,
+                                           building_type: building,
+                                           primary_heating_fuel: fuel,
+                                           tbd_option: quality,
+                                           sizing_run_dir: @sizing_run_dir)
 
-    @templates.sort.each     do |template|
-      @epws.sort.each        do |epw     |
-        @buildings.sort.each do |building|
-          @fuels.sort.each   do |fuel    |
-            @derating.each   do |derate  |
-              @uprating.each do |uprate  |
-                st = Standard.build(template)
-                model = st.model_create_prototype_model(template:template,
-                                             building_type: building,
-                                             derate: derate,
-                                             uprate: uprate,
-                                             epw_file: epw,
-                                             sizing_run_dir: @sizing_run_dir,
-                                             primary_heating_fuel: fuel)
+              model.getSurfaces.each do |surface|
+                id = surface.nameString
+                conditions = surface.outsideBoundaryCondition.downcase
+                next unless conditions == "outdoors"
 
-                puts "TBD ---"
+                lc = surface.construction
+                assert(lc.is_initialized, "Empty #{id} construction")
+                next unless lc.is_initialized
 
-                model.getSurfaces.each do |surface|
-                  id = surface.nameString
-                  conditions = surface.outsideBoundaryCondition.downcase
-                  next unless conditions == "outdoors"
-                  lc = surface.construction
-                  puts "WHAT THE? #{id}?"   if lc.empty?
-                  next                      if lc.empty?
+                lc = lc.get.to_LayeredConstruction
+                assert(lc.is_initialized, "Empty #{id} layered construction")
+                next unless lc.is_initialized
 
-                  lc = lc.get.to_LayeredConstruction
-                  puts "WHAT NOW? #{id}?"   if lc.empty?
-                  next                      if lc.empty?
+                derated = lc.get.nameString.downcase.include?(" c tbd")
+                err_msg = "Failed TBD processes for #{template}: #{building}"
 
-                  lc  = lc.get
-                  nom = lc.nameString
+                assert(derated == false, err_msg)     if quality == :none
+                assert(derated == true,  err_msg) unless quality == :none
 
-                  if surface.isConstructionDefaulted
-                    next if id.downcase.include?("roof")   # unconditioned attic
-                    next if derate == false
+                # Additional assertions could include:
+                #   - which uprated buildings fail to uprate
+                #   - 'assert_in_delta' checks of heat loss from thermal
+                #     bridging for some key, pre-selected surfaces
+              end
 
-                    puts "Hmm ... #{nom} vs #{id}?"        # shouldn't happen ...
-                  else
-                    puts "#{nom}: unique to #{id} surface"
-                    next if nom.downcase.include?("c tbd")
-
-                    puts "Hmmm ... #{nom} vs #{id}?"
-                  end
-                end
-
-                puts "TBD --"
-
-              end # @uprating.each do |uprate|
-            end   # @derating.each do       |derate  |
-          end     # @fuels.sort.each do     |fuel    |
+            end   # @qualities.each      do |quality |
+          end     # @fuels.sort.each     do |fuel    |
         end       # @buildings.sort.each do |building|
-      end         # @epws.sort.each do      |epw     |
+      end         # @epws.sort.each      do |epw     |
     end           # @templates.sort.each do |template|
 
 
     # Save test results to file.
-    File.open(@test_results_file, 'w') do |f|
-      f.write(JSON.pretty_generate(@test_results_array))
-    end
+    # File.open(@test_results_file, 'w') do |f|
+    #   f.write(JSON.pretty_generate(@test_results_array))
+    # end
   end
 
 end
