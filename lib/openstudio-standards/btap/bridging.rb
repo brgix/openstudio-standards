@@ -1448,6 +1448,31 @@ module BTAP
             #  - 0.080 for STEL2
             #  - 0.100 for all ROOFS
             #    TO_DO ... !!!
+
+            @model[:sptypes].values.each do |sptype|
+              uos   = []
+              surfs = []
+              next unless sptype.key?(stypes)
+              next unless sptype[stypes].key?(perform) # :hp
+
+              construction = sptype[stypes][perform]
+              next unless @@data.key?(construction)
+              next unless @@data[construction].key?(:uos)
+
+              @@data[construction][:uos].keys.each { |u| uos << u.to_f / 1000 }
+              uo  = uos.min
+
+              model.getSpaces.each do |space|
+                sptyp = space.spaceType
+                next if sptyp.empty?
+
+                sptyp = sptyp.get.nameString
+                typ   = self.sptype(sptyp, @model[:stories]) # e.g. :office
+                next unless typ == sptype
+              end
+
+              BTAP::Geometry::Surfaces.set_surfaces_construction_conductance([surface], uo)
+            end
           end
 
           break
@@ -1737,8 +1762,8 @@ module BTAP
         @tally[e[:type]][e[:psi]] += e[:length]
       end
 
-      # TO-DO: Add final selection of wall, roof & exposed floor selected Uo
-      # factors (per spacetype) for costing.
+      # TO-DO: Add final selection of (i) wall, (ii) roof & (iii) exposed floor
+      # Uo factors (3x numbers per spacetype) for costing.
     end
 
     ##
