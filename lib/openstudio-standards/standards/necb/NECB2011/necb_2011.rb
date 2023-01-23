@@ -655,13 +655,13 @@ class NECB2011 < Standard
       argh[:roofs ] = { uo: ext_roof_cond  }
 
       if tbd_option == :uprate
-        argh[:walls ][:ut] = ext_wall_cond
-        argh[:floors][:ut] = ext_floor_cond
-        argh[:roofs ][:ut] = ext_roof_cond
+        argh[:walls  ][:ut] = ext_wall_cond
+        argh[:floors ][:ut] = ext_floor_cond
+        argh[:roofs  ][:ut] = ext_roof_cond
       elsif tbd_option == :poor || tbd_option == :good
         argh[:quality] = tbd_option
       else
-        argh[:quality] = :poor
+        argh[:quality] = :good
       end
 
       tbd = BTAP::Bridging.new(model, argh)

@@ -1265,12 +1265,10 @@ module BTAP
       comply  = false
       redflag = false
       perform = :lp    # Low-performance wall constructions
-      quality = :bad   # poor PSI factors
+      quality = :bad   # poor PSI factors - maybe reset to :good (user option)
+      quality = :good if argh.key?(:quality) && argh[:quality] == :good
       combo   = "#{perform.to_s}_#{quality.to_s}".to_sym # e.g. :lp_bad
       args    = {}     # initialize native TBD arguments
-
-      #
-      quality = :good if argh.key?(:quality) && argh[:quality] == :good
 
       # If uprating, initialize native TBD args.
       [:walls, :floors, :roofs].each do |stypes|
@@ -1288,6 +1286,7 @@ module BTAP
         args[ut    ] = argh[stypes][:ut]
       end
 
+      # TO-DO : Possible (internal) check to ensure @model.key?(combo) ...
       args[:io_path] = @model[combo] # contents of a "tbd.json" file
       args[:option ] = ""            # safeguard
 
@@ -1340,6 +1339,8 @@ module BTAP
             break if unable
 
             unable = log[:message].include?("Can't uprate "    )
+
+            # Maybe check for FATAL errors logged by TBD ... TO-DO.
           end
 
           if unable
@@ -1460,17 +1461,17 @@ module BTAP
 
       if comply
         # Run "process" TBD (with last generated args Hash) one last time on
-        # "model" (not cloned "mdl"). This will successfully uprate, then
-        # derate BTAP above-grade surface constructions before simulation.
+        # "model" (not cloned "mdl"). This may uprate (if applicable ... unless
+        # redflagged), then derate BTAP above-grade surface constructions before
+        # simulation.
         TBD.clean!
         res = TBD.process(model, args)
 
-        puts # TEMPORARY
-        puts args[:io_path][:psis]
-        puts
+        # puts # TEMPORARY
+        # puts args[:io_path][:psis]
+        # puts
 
-        comply = false if redflag
-
+        @model[:comply  ] = false if redflag
         @model[:io      ] = res[:io      ] # TBD outputs (i.e. "tbd.out.json")
         @model[:surfaces] = res[:surfaces] # TBD derated surface data
         @model[:args    ] = args           # last TBD inputs (i.e. "tbd.json")
@@ -1605,6 +1606,7 @@ module BTAP
 
         sptyp = space.spaceType
         next if sptyp.empty?
+
         sptyp = sptyp.get.nameString
         typ   = self.sptype(sptyp, @model[:stories]) # e.g. :office
 
@@ -1734,6 +1736,9 @@ module BTAP
         @tally[e[:type]][e[:psi]]  = 0  unless @tally[e[:type]].key?(e[:psi])
         @tally[e[:type]][e[:psi]] += e[:length]
       end
+
+      # TO-DO: Add final selection of wall, roof & exposed floor selected Uo
+      # factors (per spacetype) for costing.
     end
 
     ##
