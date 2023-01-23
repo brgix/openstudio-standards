@@ -1469,9 +1469,11 @@ module BTAP
                 sptyp = sptyp.get.nameString
                 typ   = self.sptype(sptyp, @model[:stories]) # e.g. :office
                 next unless typ == sptype
+
+                space.getSurfaces
               end
 
-              BTAP::Geometry::Surfaces.set_surfaces_construction_conductance([surface], uo)
+              BTAP::Geometry::Surfaces.set_surfaces_construction_conductance(surfaces, uo)
             end
           end
 

@@ -56,7 +56,7 @@ class NECB_TBD_Tests < Minitest::Test
     #
     # Otherwise, :bad vs :good PSI factor sets refer to costed BTAP details.
     # @qualities = [:none, :bad, :good, :uprate]
-    @qualities = [:uprate]
+    @qualities = [:none]
 
     @templates.sort.each         do |template|
       @epws.sort.each            do |epw     |
@@ -65,6 +65,7 @@ class NECB_TBD_Tests < Minitest::Test
             @qualities.sort.each do |quality |
 
               st = Standard.build(template)
+              puts "hello"
               model = st.model_create_prototype_model(template:template,
                                            epw_file: epw,
                                            building_type: building,
