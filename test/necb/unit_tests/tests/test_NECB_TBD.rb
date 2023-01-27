@@ -47,7 +47,7 @@ class NECB_TBD_Tests < Minitest::Test
 
     @fuels = ['Electricity']
 
-    # Optional PSI factor sets (e.g. optional for pre-NECB2017 templates. If
+    # Optional PSI factor sets (e.g. optional for pre-NECB2017 templates). If
     # :none, neither TBD 'uprating' nor 'derating' calculations (and subsequent
     # modifications to generated OpenStudio models) are carried out. If instead
     # set to :uprate, psi factor sets are determined iteratively, see:
@@ -55,42 +55,68 @@ class NECB_TBD_Tests < Minitest::Test
     #   lib/openstudio-standards/btap/bridging.rb
     #
     # Otherwise, :bad vs :good PSI factor sets refer to costed BTAP details.
-    # @qualities = [:none, :bad, :good, :uprate]
-    @qualities = [:none]
+    @options = ['none', 'bad', 'good', 'uprate']
+    # @options = ['none']
 
-    @templates.sort.each         do |template|
-      @epws.sort.each            do |epw     |
-        @buildings.sort.each     do |building|
-          @fuels.sort.each       do |fuel    |
-            @qualities.sort.each do |quality |
+    fdback = []
+    fdback << ""
+    fdback << "BTAP/TBD Unit Tests"
+    fdback << "~~~~ ~~~~ ~~~~ ~~~~"
+
+    @templates.sort.each       do |template|
+      @epws.sort.each          do |epw     |
+        @buildings.sort.each   do |building|
+          @fuels.sort.each     do |fuel    |
+            @options.sort.each do |option  |
+              fdback << ""
+              fdback << "CASE #{option} | #{building} (#{template})"
 
               st = Standard.build(template)
-              puts "hello"
               model = st.model_create_prototype_model(template:template,
                                            epw_file: epw,
                                            building_type: building,
                                            primary_heating_fuel: fuel,
-                                           tbd_option: quality,
+                                           tbd_option: option,
                                            sizing_run_dir: @sizing_run_dir)
+
+              # Parallel TBD run on a model clone: compare deratable surfaces
+              # that have TBD-assigned heat loss from MAJOR thermal bridging.
+              mdl      = OpenStudio::Model::Model.new
+              mdl.addObjects(model.toIdfFile.objects)
+              TBD.clean!
+              args     = { option: "poor (BETBG)" }
+              res      = TBD.process(mdl, args)
+              surfaces = res[:surfaces]
 
               model.getSurfaces.each do |surface|
                 id = surface.nameString
-                conditions = surface.outsideBoundaryCondition.downcase
-                next unless conditions == "outdoors"
+                err_msg = "BTAP/TBD: Mismatch between surfaces"
+                assert(surfaces.key?(id), err_msg)
 
-                lc = surface.construction
-                assert(lc.is_initialized, "Empty #{id} construction")
-                next unless lc.is_initialized
+                next unless surfaces[id].key?(:deratable)
+                next unless surfaces[id].key?(:heatloss )
+                next unless surfaces[id][:deratable]
+                next unless surfaces[id][:heatloss ].abs > TBD::TOL
 
-                lc = lc.get.to_LayeredConstruction
-                assert(lc.is_initialized, "Empty #{id} layered construction")
-                next unless lc.is_initialized
+                lc      = surface.construction
+                err_msg = "BTAP/TBD: Empty #{id} construction"
+                assert(lc.is_initialized, err_msg)
 
-                derated = lc.get.nameString.downcase.include?(" c tbd")
+                lc      = lc.get.to_LayeredConstruction
+                err_msg = "BTAP/TBD: Empty #{id} layered construction"
+                assert(lc.is_initialized, err_msg)
+
+                nom     = lc.get.nameString.downcase
+                derated = nom.include?(" c tbd")
                 err_msg = "Failed TBD processes for #{template}: #{building}"
+                assert(derated == false, err_msg)     if option == 'none'
+                assert(derated == true,  err_msg) unless option == 'none'
 
-                assert(derated == false, err_msg)     if quality == :none
-                assert(derated == true,  err_msg) unless quality == :none
+                uo  = 1 / TBD.rsi(lc.get, surface.filmResistance)
+                uo  = format("%.3f", uo)
+                msg = "- '#{id}' derated '#{nom}' Uo #{uo}"        if derated
+                msg = "- '#{id}' un-derated '#{nom}' Uo #{uo}" unless derated
+                fdback << msg
 
                 # Additional assertions could include:
                 #   - which uprated buildings fail to uprate
@@ -98,12 +124,14 @@ class NECB_TBD_Tests < Minitest::Test
                 #     bridging for some key, pre-selected surfaces
               end
 
-            end   # @qualities.each      do |quality |
-          end     # @fuels.sort.each     do |fuel    |
-        end       # @buildings.sort.each do |building|
-      end         # @epws.sort.each      do |epw     |
-    end           # @templates.sort.each do |template|
+            end # @options.each        do |option |
+          end   # @fuels.sort.each     do |fuel    |
+        end     # @buildings.sort.each do |building|
+      end       # @epws.sort.each      do |epw     |
+    end         # @templates.sort.each do |template|
 
+    # Temporary.
+    fdback.each { |msg| puts msg }
 
     # Save test results to file.
     # File.open(@test_results_file, 'w') do |f|

@@ -230,10 +230,10 @@ class NECB2011 < Standard
                                    output_meters: nil,
                                    airloop_economizer_type: nil,
                                    baseline_system_zones_map_option: nil,
-                                   tbd_option: :none)
+                                   tbd_option: 'none')
     model = load_building_type_from_library(building_type: building_type)
     return model_apply_standard(model: model,
-                                tbd_option: :none, # 4x options: (1) :none (TBD is ignored), (2) :poor or (3) :good PSI factors (BTAP-costed), and (4) :uprate (i.e. iterative process)
+                                tbd_option: tbd_option, # 4x options: (1) 'none' (TBD is ignored), (2) 'poor' or (3) 'good' PSI factors (BTAP-costed), and (4) 'uprate' (i.e. iterative process)
                                 epw_file: epw_file,
                                 sizing_run_dir: sizing_run_dir,
                                 necb_reference_hp: necb_reference_hp,
@@ -306,7 +306,7 @@ class NECB2011 < Standard
   # Created this method so that additional methods can be addded for bulding the prototype model in later
   # code versions without modifying the build_protoype_model method or copying it wholesale for a few changes.
   def model_apply_standard(model:,
-                           tbd_option: :none,
+                           tbd_option: 'none',
                            epw_file:,
                            sizing_run_dir: Dir.pwd,
                            necb_reference_hp: false,
@@ -374,7 +374,7 @@ class NECB2011 < Standard
                 electrical_loads_scale: electrical_loads_scale,
                 oa_scale: oa_scale)
     apply_envelope(model: model,
-                   tbd_option: :none,
+                   tbd_option: tbd_option,
                    ext_wall_cond: ext_wall_cond,
                    ext_floor_cond: ext_floor_cond,
                    ext_roof_cond: ext_roof_cond,
@@ -607,7 +607,7 @@ class NECB2011 < Standard
   end
 
   def apply_envelope(model:,
-                     tbd_option: :none,
+                     tbd_option: 'none',
                      ext_wall_cond: nil,
                      ext_floor_cond: nil,
                      ext_roof_cond: nil,
@@ -624,7 +624,6 @@ class NECB2011 < Standard
                      skylight_solar_trans: nil,
                      infiltration_scale: nil)
     raise('validation of model failed.') unless validate_initial_model(model)
-
     model_apply_infiltration_standard(model)
     ecm = ECMS.new
     ecm.scale_infiltration_loads(model: model, scale: infiltration_scale)
@@ -648,18 +647,18 @@ class NECB2011 < Standard
                                            skylight_solar_trans: skylight_solar_trans)
     model_create_thermal_zones(model, @space_multiplier_map)
 
-    unless tbd_option == :none
+    unless tbd_option == 'none'
       argh          = {} # BTAP/TBD arguments (Uo/Ut factors may be nilled)
       argh[:walls ] = { uo: ext_wall_cond  }
       argh[:floors] = { uo: ext_floor_cond }
       argh[:roofs ] = { uo: ext_roof_cond  }
 
-      if tbd_option == :uprate
+      if tbd_option == 'uprate'
         argh[:walls  ][:ut] = ext_wall_cond
         argh[:floors ][:ut] = ext_floor_cond
         argh[:roofs  ][:ut] = ext_roof_cond
-      elsif tbd_option == :poor || tbd_option == :good
-        argh[:quality] = tbd_option
+      elsif tbd_option == 'bad' || tbd_option == 'good'
+        argh[:quality] = tbd_option.to_sym
       else
         argh[:quality] = :good
       end
