@@ -112,10 +112,10 @@ class NECB_TBD_Tests < Minitest::Test
                 assert(derated == false, err_msg)     if option == 'none'
                 assert(derated == true,  err_msg) unless option == 'none'
 
-                uo  = 1 / TBD.rsi(lc.get, surface.filmResistance)
-                uo  = format("%.3f", uo)
-                msg = "- '#{id}' derated '#{nom}' Uo #{uo}"        if derated
-                msg = "- '#{id}' un-derated '#{nom}' Uo #{uo}" unless derated
+                ut  = 1 / TBD.rsi(lc.get, surface.filmResistance)
+                ut  = format("%.3f", ut)
+                msg = "- '#{id}' derated '#{nom}' Ut #{ut}"        if derated
+                msg = "- '#{id}' un-derated '#{nom}' Ut #{ut}" unless derated
                 fdback << msg
 
                 # Additional assertions could include:
