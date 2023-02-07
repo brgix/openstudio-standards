@@ -3,6 +3,7 @@
 class NECB2011 < Standard
   @template = new.class.name
   register_standard(@template)
+  attr_reader :tbd
   attr_reader :template
   attr_accessor :standards_data
   attr_accessor :space_type_map
@@ -119,6 +120,7 @@ class NECB2011 < Standard
     @template = self.class.name
     @standards_data = load_standards_database_new
     corrupt_standards_database
+    @tbd = nil
     # puts "loaded these tables..."
     # puts @standards_data.keys.size
     # raise("tables not all loaded in parent #{}") if @standards_data.keys.size < 24
@@ -233,7 +235,7 @@ class NECB2011 < Standard
                                    tbd_option: 'none')
     model = load_building_type_from_library(building_type: building_type)
     return model_apply_standard(model: model,
-                                tbd_option: tbd_option, # 4x options: (1) 'none' (TBD is ignored), (2) 'poor' or (3) 'good' PSI factors (BTAP-costed), and (4) 'uprate' (i.e. iterative process)
+                                tbd_option: tbd_option,
                                 epw_file: epw_file,
                                 sizing_run_dir: sizing_run_dir,
                                 necb_reference_hp: necb_reference_hp,
@@ -374,7 +376,6 @@ class NECB2011 < Standard
                 electrical_loads_scale: electrical_loads_scale,
                 oa_scale: oa_scale)
     apply_envelope(model: model,
-                   tbd_option: tbd_option,
                    ext_wall_cond: ext_wall_cond,
                    ext_floor_cond: ext_floor_cond,
                    ext_roof_cond: ext_roof_cond,
@@ -393,6 +394,7 @@ class NECB2011 < Standard
     apply_fdwr_srr_daylighting(model: model,
                                fdwr_set: fdwr_set,
                                srr_set: srr_set)
+    apply_thermal_bridging(model: model, tbd_option: tbd_option)
     apply_auto_zoning(model: model,
                       sizing_run_dir: sizing_run_dir,
                       lights_type: lights_type,
@@ -607,7 +609,6 @@ class NECB2011 < Standard
   end
 
   def apply_envelope(model:,
-                     tbd_option: 'none',
                      ext_wall_cond: nil,
                      ext_floor_cond: nil,
                      ext_roof_cond: nil,
@@ -646,33 +647,6 @@ class NECB2011 < Standard
                                            fixed_wind_solar_trans: fixed_wind_solar_trans,
                                            skylight_solar_trans: skylight_solar_trans)
     model_create_thermal_zones(model, @space_multiplier_map)
-
-    unless tbd_option == 'none'
-      argh          = {} # BTAP/TBD arguments (Uo/Ut factors may be nilled)
-      argh[:walls ] = { uo: ext_wall_cond  }
-      argh[:floors] = { uo: ext_floor_cond }
-      argh[:roofs ] = { uo: ext_roof_cond  }
-
-      if tbd_option == 'uprate'
-        argh[:walls  ][:ut] = ext_wall_cond
-        argh[:floors ][:ut] = ext_floor_cond
-        argh[:roofs  ][:ut] = ext_roof_cond
-      elsif tbd_option == 'bad' || tbd_option == 'good'
-        argh[:quality] = tbd_option.to_sym
-      else
-        argh[:quality] = :good
-      end
-
-      tbd = BTAP::Bridging.new(model, argh)
-      # To-do output to json for costing... - Phylroy
-      # tbd.tally
-
-      # tbd.feedback[:logs].each do |log|
-      #   puts log
-      # end
-
-      # tbd.feedback ... report (how?) failed attempts (e.g. uprating) to users.
-    end
   end
 
   # apply the Kiva foundation model to floors and walls with ground boundary condition
@@ -910,6 +884,48 @@ class NECB2011 < Standard
     apply_standard_window_to_wall_ratio(model: model, fdwr_set: fdwr_set)
     apply_standard_skylight_to_roof_ratio(model: model, srr_set: srr_set)
     # model_add_daylighting_controls(model) # to be removed after refactor.
+  end
+
+  ##
+  # Optionally uprates, then derates, envelope surfaces due to MAJOR thermal
+  # bridges (e.g. roof parapets, corners, fenestration perimeters). See
+  # lib/openstudio-standards/btap/bridging.rb, which relies on the Thermal
+  # Bridging & Derating (TBD) gem.
+  #
+  # @param model [OpenStudio::Model::Model] an OpenStudio model
+  # @param tbd_option [String] BTAP/TBD option
+  #
+  # @return [Bool] true if successful, e.g. no errors, compliant if uprated
+  def apply_thermal_bridging(model: nil, tbd_option: 'none')
+    return false unless model.is_a?(OpenStudio::Model::Model)
+    return false unless tbd_option.respond_to?(:to_s)
+
+    tbd_option = tbd_option.to_s
+    # 4x options:
+    #  - 'none' (TBD is ignored)
+    #  - derate using 'bad' PSI factors (BTAP-costed)
+    #  - derate using 'good' PSI factors (BTAP-costed)
+    #  - 'uprate' (then derate), i.e. iterative process (BTAP-costed)
+    ok = tbd_option == 'bad' || tbd_option == 'good' || tbd_option == 'uprate'
+    return true  if tbd_option == 'none'
+    return false unless ok
+
+    argh          = {} # BTAP/TBD arguments
+    argh[:walls ] = { uo: nil }
+    argh[:floors] = { uo: nil }
+    argh[:roofs ] = { uo: nil }
+
+    if tbd_option == 'uprate'
+      argh[:walls  ][:ut] = nil
+      argh[:floors ][:ut] = nil
+      argh[:roofs  ][:ut] = nil
+    elsif tbd_option == 'good'
+      argh[:quality] = :good
+    end    # default == :bad
+
+    @tbd = BTAP::Bridging.new(model, argh)
+
+    true
   end
 
   # @param necb_ref_hp [Bool] if true, NECB reference model rules for heat pumps will be used.

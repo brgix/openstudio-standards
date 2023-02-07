@@ -56,7 +56,7 @@ class NECB_TBD_Tests < Minitest::Test
     #
     # Otherwise, :bad vs :good PSI factor sets refer to costed BTAP details.
     @options = ['none', 'bad', 'good', 'uprate']
-    # @options = ['none']
+    # @options = ['uprate']
 
     fdback = []
     fdback << ""
@@ -68,9 +68,9 @@ class NECB_TBD_Tests < Minitest::Test
         @buildings.sort.each   do |building|
           @fuels.sort.each     do |fuel    |
             @options.sort.each do |option  |
+              cas = "CASE #{option} | #{building} (#{template})"
               fdback << ""
-              fdback << "CASE #{option} | #{building} (#{template})"
-
+              fdback << cas
               st = Standard.build(template)
               model = st.model_create_prototype_model(template:template,
                                            epw_file: epw,
@@ -79,51 +79,86 @@ class NECB_TBD_Tests < Minitest::Test
                                            tbd_option: option,
                                            sizing_run_dir: @sizing_run_dir)
 
-              # Parallel TBD run on a model clone: compare deratable surfaces
-              # that have TBD-assigned heat loss from MAJOR thermal bridging.
-              mdl      = OpenStudio::Model::Model.new
-              mdl.addObjects(model.toIdfFile.objects)
-              TBD.clean!
-              args     = { option: "poor (BETBG)" }
-              res      = TBD.process(mdl, args)
-              surfaces = res[:surfaces]
+              if option == 'none'
+                err_msg = "BTAP/TBD: Initialized ('#{cas}')?"
+                assert(st.tbd.nil?, err_msg)
 
-              model.getSurfaces.each do |surface|
-                id = surface.nameString
-                err_msg = "BTAP/TBD: Mismatch between surfaces"
-                assert(surfaces.key?(id), err_msg)
+                model.getSurfaces.each do |surface|
+                  id      = surface.nameString
+                  lc      = surface.construction
+                  err_msg = "BTAP/TBD: #{id} construction (#{cas})?"
+                  assert(lc.is_initialized, err_msg)
+                  boundary = surface.outsideBoundaryCondition.downcase
+                  next unless boundary == "outdoors"
 
-                next unless surfaces[id].key?(:deratable)
-                next unless surfaces[id].key?(:heatloss )
-                next unless surfaces[id][:deratable]
-                next unless surfaces[id][:heatloss ].abs > TBD::TOL
+                  lc      = lc.get.to_LayeredConstruction
+                  err_msg = "BTAP/TBD: #{id} layered construction (#{cas})?"
+                  assert(lc.is_initialized, err_msg)
+                  name    = lc.get.nameString.downcase
+                  derated = name.include?(" c tbd")
+                  err_msg = "BTAP/TBD processes enabled (#{cas})?"
+                  assert(derated == false, err_msg)
+                end
 
-                lc      = surface.construction
-                err_msg = "BTAP/TBD: Empty #{id} construction"
-                assert(lc.is_initialized, err_msg)
+                fdback << "BTAP/TBD processes skipped"
+              else
+                err_msg = "BTAP/TBD: Uninitialized (#{cas})?"
+                assert(st.tbd.is_a?(BTAP::Bridging), err_msg)
+                err_msg = "BTAP/TBD: Missing model Hash (#{cas})?"
+                assert(st.tbd.model.is_a?(Hash), err_msg)
+                err_msg = "BTAP/TBD: Missing feedback Hash (#{cas})?"
+                assert(st.tbd.feedback.is_a?(Hash), err_msg)
+                err_msg = "BTAP/TBD: Missing feedback logs (#{cas})?"
+                assert(st.tbd.feedback.key?(:logs), err_msg)
+                err_msg = "BTAP/TBD: Invalid feedback logs (#{cas})?"
+                assert(st.tbd.feedback[:logs].is_a?(Array), err_msg)
+                err_msg = "BTAP/TBD: Missing tally Hash (#{cas})?"
+                assert(st.tbd.tally.is_a?(Hash), err_msg)
+                err_msg = "BTAP/TBD: Missing model 'comply' key (#{cas})?"
+                assert(st.tbd.model.key?(:comply), err_msg)
 
-                lc      = lc.get.to_LayeredConstruction
-                err_msg = "BTAP/TBD: Empty #{id} layered construction"
-                assert(lc.is_initialized, err_msg)
+                err_msg = "BTAP/TBD: Missing TBD 'surfaces' (#{cas})?"
+                assert(st.tbd.model.key?(:surfaces), err_msg)
+                err_msg = "BTAP/TBD: TBD 'surfaces' Hash (#{cas})?"
+                assert(st.tbd.model[:surfaces].is_a?(Hash), err_msg)
+                err_msg = "BTAP/TBD: Empty TBD 'surfaces' (#{cas})?"
+                assert(st.tbd.model[:surfaces].empty? == false, err_msg)
+                surfaces = st.tbd.model[:surfaces]
 
-                nom     = lc.get.nameString.downcase
-                derated = nom.include?(" c tbd")
-                err_msg = "Failed TBD processes for #{template}: #{building}"
-                assert(derated == false, err_msg)     if option == 'none'
-                assert(derated == true,  err_msg) unless option == 'none'
+                # Regardless of whether BTAP/TBD were successful or not in
+                # uprating the building constructions (i.e. option == 'uprate'),
+                # deratable surfaces should have been derated nonetheless.
+                model.getSurfaces.each do |surface|
+                  id = surface.nameString
+                  err_msg = "BTAP/TBD: Mismatched #{id} surfaces (#{cas})?"
+                  assert(surfaces.key?(id), err_msg)
+                  next unless surfaces[id].key?(:deratable)
+                  next unless surfaces[id].key?(:type     )
+                  next unless surfaces[id].key?(:heatloss )
+                  next unless surfaces[id][:deratable]
+                  next unless surfaces[id][:heatloss ].abs > TBD::TOL
 
-                ut  = 1 / TBD.rsi(lc.get, surface.filmResistance)
-                ut  = format("%.3f", ut)
-                msg = "- '#{id}' derated '#{nom}' Ut #{ut}"        if derated
-                msg = "- '#{id}' un-derated '#{nom}' Ut #{ut}" unless derated
-                fdback << msg
+                  lc      = surface.construction
+                  err_msg = "BTAP/TBD: #{id} construction (#{cas})?"
+                  assert(lc.is_initialized, err_msg)
+                  lc      = lc.get.to_LayeredConstruction
+                  err_msg = "BTAP/TBD: #{id} layered construction (#{cas})?"
+                  assert(lc.is_initialized, err_msg)
+                  nom     = lc.get.nameString.downcase
+                  err_msg = "Failed TBD processes (#{cas})?"
+                  assert(nom.include?(" c tbd"), err_msg)
+                end
 
-                # Additional assertions could include:
-                #   - which uprated buildings fail to uprate
-                #   - 'assert_in_delta' checks of heat loss from thermal
-                #     bridging for some key, pre-selected surfaces
+                st.tbd.feedback[:logs].each do |log|
+                  next if log.include?("(OSut::scheduleCompactMinMax)")
+                  next if log.include?("TBD-identified non-FATAL error(s):")
+
+                  fdback << log
+
+                  # NOTE: BTAP/TBD feedback logs are simple strings. Look up
+                  # st.tbd.tally Hash to extract quantities for costing.
+                end
               end
-
             end # @options.each        do |option |
           end   # @fuels.sort.each     do |fuel    |
         end     # @buildings.sort.each do |building|

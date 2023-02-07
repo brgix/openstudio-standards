@@ -137,7 +137,7 @@ module BTAP
     # In all 3 classes, a BTAP/TBD option switch allows BTAP users to activate
     # or deactivate TBD functionality :
     #   - "none" : TBD is deactivated, i.e. no up/de-rating
-    #   - "poor" or "good": (BTAP-costed) PSI factor sets, i.e. derating only
+    #   - "bad" or "good": (BTAP-costed) PSI factor sets, i.e. derating only
     #   - "uprate": iteratively determine initial Uo ... prior to derating
     #
     # For vintages < NECB2017, the default BTAP policy is to switch off TBD,
@@ -429,7 +429,7 @@ module BTAP
     # here (just in case):
     #
     #   - for the "bad" BTAP cases, retained values are those of the
-    #     generic "poor" BETBG set
+    #     generic "bad" BETBG set
     #   - while "good" BTAP values are those of the generic BETBG
     #     "efficient" set
 
@@ -1261,8 +1261,28 @@ module BTAP
     # @param model [OpenStudio::Model::Model] a model
     # @param argh [Hash] BTAP/TBD argument hash
     def initialize(model = nil, argh = {})
+      @model    = {}
+      @tally    = {}
       @feedback = { logs: [] }
       lgs       = @feedback[:logs]
+
+      # BTAP generates free-floating, unoccupied spaces (e.g. attics) as
+      # 'indirectly conditioned', rather than 'unconditioned' (e.g. vented
+      # attics). For instance, all outdoor-facing sloped roof surfaces of an
+      # attic in BTAP are insulated, while attic floors remain uninsulated. BTAP
+      # adds to the thermal zone of each unoccupied space a thermostat without
+      # referecing heating and/or cooling setpoint schedule objects. These
+      # conditions do not meet TBD's internal 'plenum' logic/check (which is
+      # based on OpenStudio-Standards), and so TBD ends up tagging such spaces
+      # as unconditioned. Consequently, TBD attempts to up/de-rate attic floors
+      # - not sloped roof surfaces. The original BTAP solution will undoubtedly
+      # need revision. In the meantime, and in an effort to harmonize TBD with
+      # BTAP's current approach, an OpenStudio model may be temporarily
+      # modified prior to TBD processes, ensuring that each attic space is
+      # temporarily mistaken as a conditioned plenum. The return variable of the
+      # following method is a Hash holding temporarily-modified spaces,
+      # i.e. buffer zones.
+      buffers = self.alter_buffers(model)
 
       # Populate BTAP/TBD inputs with BTAP & OpenStudio model parameters,
       # which returns 'true' if successful. Check @feedback logs if failure to
@@ -1285,6 +1305,11 @@ module BTAP
         next unless argh.key?(stypes)
         next unless argh[stypes].key?(:ut)
 
+        ut = argh[stypes][:ut]
+        ok = ut.is_a?(Numeric) && ut.between?(UMIN, UMAX)
+        lgs << "Invalid BTAP/TBD #{stypes} Ut" unless ok
+        next                                   unless ok
+
         stype  = stypes.to_s.chop
         uprate = "uprate_#{stypes.to_s}".to_sym
         option = "#{stype}_option".to_sym
@@ -1292,7 +1317,7 @@ module BTAP
 
         args[uprate] = true
         args[option] = "ALL #{stype} constructions"
-        args[ut    ] = argh[stypes][:ut]
+        args[ut    ] = ut
       end
 
       args[:io_path] = @model[combo] # contents of a "tbd.json" file
@@ -1346,8 +1371,6 @@ module BTAP
             break if unable
 
             unable = log[:message].include?("Can't uprate "    )
-
-            # Maybe check for FATAL errors logged by TBD ... TO-DO.
           end
 
           if unable
@@ -1529,6 +1552,103 @@ module BTAP
         self.gen_tallies                   # tallies for BTAP costing
         self.gen_feedback                  # log success messages for BTAP
       end
+
+      self.purge_buffer_schedules(model, buffers)
+    end
+
+    ##
+    # Modify BTAP-generated 'buffer zones' (e.g. attics) to ensure TBD tags
+    # these as indirectly conditioned spaces (e.g. plenums).
+    #
+    # @param model [OpenStudio::Model::Model] a model
+    #
+    # @return [Array] identifiers of modified buffer spaces in model
+    def alter_buffers(model = nil)
+      buffers = []
+      sched   = nil
+      lgs     = @feedback[:logs]
+      cl      = OpenStudio::Model::Model
+      lgs << "Invalid OpenStudio model (buffers)" unless model.is_a?(cl)
+      return buffers                              unless model.is_a?(cl)
+
+      model.getSpaces.each do |space|
+        next if space.partofTotalFloorArea
+        next if space.thermalZone.empty?
+
+        id    = space.nameString
+        zone  = space.thermalZone.get
+        next if zone.isPlenum
+        next if zone.thermostat.empty?
+
+        tstat  = zone.thermostat.get
+        staged = tstat.respond_to?(:heatingTemperatureSetpointSchedule)
+        tstat  = tstat.to_ZoneControlThermostatStagedDualSetpoint.get if staged
+        tstat  = tstat.to_ThermostatSetpointDualSetpoint.get      unless staged
+
+        if sched.nil?
+          name  = "TBD attic setpoint sched"
+          sched = OpenStudio::Model::ScheduleCompact.new(model)
+          sched.setName(name)
+        end
+
+        tstat.setHeatingTemperatureSetpointSchedule(sched)     if staged
+        tstat.setHeatingSetpointTemperatureSchedule(sched) unless staged
+
+        buffers << id
+      end
+
+      buffers
+    end
+
+    ##
+    # Remove previously BTAP/TBD-added heating setpoint schedules for 'buffer
+    # zones' (e.g. attics).
+    #
+    # @param model [OpenStudio::Model::Model] a model
+    # @param buffers [Array] identifiers of modified buffer spaces in model
+    #
+    # @return [Bool] true if successful
+    def purge_buffer_schedules(model = nil, buffers = [])
+      scheds = []
+      lgs    = @feedback[:logs]
+      cl     = OpenStudio::Model::Model
+      lgs << "Invalid OpenStudio model (purge)" unless model.is_a?(cl)
+      lgs << "Invalid BTAP/TBD buffers"         unless buffers.is_a?(Array)
+      return false                              unless model.is_a?(cl)
+      return false                              unless buffers.is_a?(Array)
+
+      buffers.each do |id|
+        space = model.getSpaceByName(id)
+        next if space.empty?
+
+        space = space.get
+        next if space.thermalZone.empty?
+
+        zone = space.thermalZone.get
+        next if zone.thermostat.empty?
+
+        tstat  = zone.thermostat.get
+        staged = tstat.respond_to?(:heatingTemperatureSetpointSchedule)
+        tstat  = tstat.to_ZoneControlThermostatStagedDualSetpoint.get if staged
+        tstat  = tstat.to_ThermostatSetpointDualSetpoint.get      unless staged
+        sched  = tstat.heatingTemperatureSetpointSchedule             if staged
+        sched  = tstat.heatingSetpointTemperatureSchedule         unless staged
+        next if sched.empty?
+
+        sched = sched.get
+        scheds << sched.nameString
+        tstat.resetHeatingSetpointTemperatureSchedule             unless staged
+        tstat.resetHeatingTemperatureSetpointSchedule                 if staged
+      end
+
+      scheds.each do |sched|
+        schd = model.getScheduleByName(sched)
+        next if schd.empty?
+        schd = schd.get
+        schd.remove
+      end
+
+      true
     end
 
     ##
@@ -1576,7 +1696,6 @@ module BTAP
     def populate(model = nil, argh = {})
       lgs    = @feedback[:logs]
       cl     = OpenStudio::Model::Model
-      @model = {}
       args   = { option: "(non thermal bridging)" }    # for initial TBD dry run
 
       # Pre-TBD BTAP validatation.
@@ -1645,7 +1764,7 @@ module BTAP
         @model[stypes][id][:space ] = space
         @model[stypes][id][:sptype] = typ
 
-        # Keep track if individual spaces and spacetypes.
+        # Keep track of individual spaces and spacetypes.
         exists = @model[:spaces].key?(space)
         @model[:spaces][space]          = {}        unless exists
         @model[:spaces][space][:sptype] = typ       unless exists
@@ -1678,11 +1797,10 @@ module BTAP
         return false                           unless argh[stypes].key?(:uo)
         next                                       if @model[stypes].empty?
 
-        uo = argh[stypes][:uo]
-        uo = self.minU(model, stypes)              if argh[stypes][:uo].nil?
-        argh[stypes][:uo] = uo                     if argh[stypes][:uo].nil?
-        next                                       if uo.is_a?(Numeric)
-        next                                       if uo.between?(UMIN, UMAX)
+        uo = self.minU(model, stypes)
+        ok = uo.is_a?(Numeric) && uo.between?(UMIN, UMAX)
+        argh[stypes][:uo] = uo                     if ok
+        next                                       if ok
 
         lgs << "Invalid BTAP/TBD #{stypes} Uo"
         return false
@@ -1692,13 +1810,12 @@ module BTAP
         next                                   unless argh[stypes].key?(:ut)
         next                                       if @model[stypes].empty?
 
-        ut = argh[stypes][:ut]
-        ut = self.minU(model, stypes)              if argh[stypes][:ut].nil?
-        argh[stypes][:ut] = ut                     if argh[stypes][:ut].nil?
-        next                                       if ut.is_a?(Numeric)
-        next                                       if ut.between?(UMIN, UMAX)
+        ut = self.minU(model, stypes)
+        ok = ut.is_a?(Numeric) && ut.between?(UMIN, UMAX)
+        argh[stypes][:ut] = ut                     if ok
+        next                                       if ok
 
-        lgs << "Invalid BTAP/TBD #{stypes} Ut"
+        lgs << "Invalid BTAP #{stypes} Ut"
         return false
       end
 
@@ -1784,7 +1901,6 @@ module BTAP
     #
     # @return [Bool] true if BTAP/TBD tally is successful
     def gen_tallies
-      @tally = {}
       edges  = {}
       return false unless @model.key?(:io)
       return false unless @model[:io].key?(:edges)
@@ -1847,7 +1963,7 @@ module BTAP
       # Uprating unsuccessful: report min Uo factor per construction.
       if @model.key?(:constructions)
         @model[:constructions].each do |id, construction|
-          break unless @model[:comply]
+          break if @model[:comply]
 
           lgs << "Non-compliant #{id} Uo factor #{construction[:uo]} (W/K.m^2)"
         end
