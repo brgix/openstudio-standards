@@ -3,11 +3,12 @@
 class NECB2011 < Standard
   @template = new.class.name
   register_standard(@template)
+  attr_reader :tbd
   attr_reader :template
   attr_accessor :standards_data
   attr_accessor :space_type_map
   attr_accessor :space_multiplier_map
-  
+
   # This is a helper method to convert arguments that may support 'NECB_Default, and nils to convert to float'
   def convert_arg_to_f(variable:, default:)
     return variable if variable.kind_of?(Numeric)
@@ -119,6 +120,7 @@ class NECB2011 < Standard
     @template = self.class.name
     @standards_data = load_standards_database_new
     corrupt_standards_database
+    @tbd = nil
     # puts "loaded these tables..."
     # puts @standards_data.keys.size
     # raise("tables not all loaded in parent #{}") if @standards_data.keys.size < 24
@@ -230,12 +232,10 @@ class NECB2011 < Standard
                                    output_meters: nil,
                                    airloop_economizer_type: nil,
                                    baseline_system_zones_map_option: nil,
-                                   derate: false,
-                                   uprate: false)
+                                   tbd_option: 'none')
     model = load_building_type_from_library(building_type: building_type)
     return model_apply_standard(model: model,
-                                derate: derate,
-                                uprate: uprate,
+                                tbd_option: tbd_option,
                                 epw_file: epw_file,
                                 sizing_run_dir: sizing_run_dir,
                                 necb_reference_hp: necb_reference_hp,
@@ -308,8 +308,7 @@ class NECB2011 < Standard
   # Created this method so that additional methods can be addded for bulding the prototype model in later
   # code versions without modifying the build_protoype_model method or copying it wholesale for a few changes.
   def model_apply_standard(model:,
-                           derate: false,
-                           uprate: false,
+                           tbd_option: 'none',
                            epw_file:,
                            sizing_run_dir: Dir.pwd,
                            necb_reference_hp: false,
@@ -377,8 +376,6 @@ class NECB2011 < Standard
                 electrical_loads_scale: electrical_loads_scale,
                 oa_scale: oa_scale)
     apply_envelope(model: model,
-                   derate: derate,
-                   uprate: uprate,
                    ext_wall_cond: ext_wall_cond,
                    ext_floor_cond: ext_floor_cond,
                    ext_roof_cond: ext_roof_cond,
@@ -397,6 +394,7 @@ class NECB2011 < Standard
     apply_fdwr_srr_daylighting(model: model,
                                fdwr_set: fdwr_set,
                                srr_set: srr_set)
+    apply_thermal_bridging(model: model, tbd_option: tbd_option)
     apply_auto_zoning(model: model,
                       sizing_run_dir: sizing_run_dir,
                       lights_type: lights_type,
@@ -514,7 +512,7 @@ class NECB2011 < Standard
                   necb_reference_hp: necb_reference_hp, necb_reference_hp_supp_fuel: necb_reference_hp_supp_fuel, baseline_system_zones_map_option: baseline_system_zones_map_option)
 
     # Apply new ECM system. Overwrite standard as required.
-    ecm.apply_system_ecm(model: model, ecm_system_name: ecm_system_name, template_standard: self, primary_heating_fuel: primary_heating_fuel, 
+    ecm.apply_system_ecm(model: model, ecm_system_name: ecm_system_name, template_standard: self, primary_heating_fuel: primary_heating_fuel,
                          ecm_system_zones_map_option: ecm_system_zones_map_option)
 
     # -------- Performace, Efficiencies, Controls and Sensors ------------
@@ -611,8 +609,6 @@ class NECB2011 < Standard
   end
 
   def apply_envelope(model:,
-                     derate: false,
-                     uprate: false,
                      ext_wall_cond: nil,
                      ext_floor_cond: nil,
                      ext_roof_cond: nil,
@@ -629,7 +625,6 @@ class NECB2011 < Standard
                      skylight_solar_trans: nil,
                      infiltration_scale: nil)
     raise('validation of model failed.') unless validate_initial_model(model)
-
     model_apply_infiltration_standard(model)
     ecm = ECMS.new
     ecm.scale_infiltration_loads(model: model, scale: infiltration_scale)
@@ -652,31 +647,6 @@ class NECB2011 < Standard
                                            fixed_wind_solar_trans: fixed_wind_solar_trans,
                                            skylight_solar_trans: skylight_solar_trans)
     model_create_thermal_zones(model, @space_multiplier_map)
-
-    if derate
-      argh          = {} # BTAP/TBD arguments (Uo/Ut factors may be nilled)
-      argh[:walls ] = { uo: ext_wall_cond  }
-      argh[:floors] = { uo: ext_floor_cond }
-      argh[:roofs ] = { uo: ext_roof_cond  }
-
-      if uprate
-        argh[:walls ][:ut] = ext_wall_cond
-        argh[:floors][:ut] = ext_floor_cond
-        argh[:roofs ][:ut] = ext_roof_cond
-      end
-
-      tbd = BTAP::Bridging.new(model, argh)
-      # To-do output to json for costing... - Phylroy
-      tbd.tally
-
-      tbd.feedback[:logs].each do |log|
-        puts log
-      end
-
-
-
-      # tbd.feedback ... report (how?) failed attempts (e.g. uprating) to users.
-    end
   end
 
   # apply the Kiva foundation model to floors and walls with ground boundary condition
@@ -736,10 +706,10 @@ class NECB2011 < Standard
     kiva_settings = model.getFoundationKivaSettings if !model.getFoundationKivas.empty?
   end
 
-  # check if two surfaces are in contact. For every two consecutive vertices on surface 1, 
-  # loop through two consecutive vertices of surface two. Then check whether the vertices 
-  # of surfaces 2 are on the same line as the vertices from surface 1. If the two vectors 
-  # defined by the two vertices on surface 1 and those on surface 2 overlap, then the two 
+  # check if two surfaces are in contact. For every two consecutive vertices on surface 1,
+  # loop through two consecutive vertices of surface two. Then check whether the vertices
+  # of surfaces 2 are on the same line as the vertices from surface 1. If the two vectors
+  # defined by the two vertices on surface 1 and those on surface 2 overlap, then the two
   # surfaces are in contact. If a side from surface 2 is in contact with a side from surface 1,
   # the length of the side from surface 2 is limited to the length of the side from surface 1.
   # created by: Kamel Haddad (kamel.haddad@nrcan-rncan.gc.ca)
@@ -779,9 +749,9 @@ class NECB2011 < Standard
     return surfaces_in_contact
   end
 
-  # Loop through the layers of the construction of the surface and replace any massless material with 
-  # a standard one. The material used instead is from the EnergyPlus dataset file 'ASHRAE_2005_HOF_Materials.idf' 
-  # with the name: 'Insulation: Expanded polystyrene - extruded (smooth skin surface) (HCFC-142b exp.)'. 
+  # Loop through the layers of the construction of the surface and replace any massless material with
+  # a standard one. The material used instead is from the EnergyPlus dataset file 'ASHRAE_2005_HOF_Materials.idf'
+  # with the name: 'Insulation: Expanded polystyrene - extruded (smooth skin surface) (HCFC-142b exp.)'.
   # The thickness of the new material is based on the thermal resistance of the massless material it replaces.
   # created by: Kamel Haddad (kamel.haddad@nrcan-rncan.gc.ca)
   def replace_massless_material_with_std_material(model,surf)
@@ -820,8 +790,8 @@ class NECB2011 < Standard
 
   end
 
-  # Find the exposed perimeter of a floor surface. For each side of the floor loop through 
-  # the walls and find the walls that share sides with the floor. Then sum the lengths of 
+  # Find the exposed perimeter of a floor surface. For each side of the floor loop through
+  # the walls and find the walls that share sides with the floor. Then sum the lengths of
   # the sides of the walls that come in contact with sides of the floor.
   # created by: Kamel Haddad (kamel.haddad@nrcan-rncan.gc.ca)
   def get_surface_exp_per(floor,walls)
@@ -856,7 +826,7 @@ class NECB2011 < Standard
           vert3 = vert4
         end
       end
-      # increment the exposed perimeter of the floor. Limit the length of the walls in contact with the 
+      # increment the exposed perimeter of the floor. Limit the length of the walls in contact with the
       # side of the floor to the length of the side of the floor.
       floor_exp_per += [walls_exp_per,side_length].min
       vert1 = vert2
@@ -865,7 +835,7 @@ class NECB2011 < Standard
     return floor_exp_per
   end
 
-  # check that three vertices are on the same line. Also check that the vectors 
+  # check that three vertices are on the same line. Also check that the vectors
   # from vert1 and vert2 and from vert1 and vert3 are in the same direction.
   # created by: Kamel Haddad (kamel.haddad@nrcan-rncan.gc.ca)
   def three_vertices_same_line_and_dir?(vert1,vert2,vert3)
@@ -896,7 +866,7 @@ class NECB2011 < Standard
 
     return same_line_same_dir
   end
-  
+
   # Thermal zones need to be set to determine conditioned spaces when applying fdwr and srr limits.
   #     # fdwr_set/srr_set settings:
   #     # 0-1:  Remove all windows/skylights and add windows/skylights to match this fdwr/srr
@@ -914,6 +884,48 @@ class NECB2011 < Standard
     apply_standard_window_to_wall_ratio(model: model, fdwr_set: fdwr_set)
     apply_standard_skylight_to_roof_ratio(model: model, srr_set: srr_set)
     # model_add_daylighting_controls(model) # to be removed after refactor.
+  end
+
+  ##
+  # Optionally uprates, then derates, envelope surfaces due to MAJOR thermal
+  # bridges (e.g. roof parapets, corners, fenestration perimeters). See
+  # lib/openstudio-standards/btap/bridging.rb, which relies on the Thermal
+  # Bridging & Derating (TBD) gem.
+  #
+  # @param model [OpenStudio::Model::Model] an OpenStudio model
+  # @param tbd_option [String] BTAP/TBD option
+  #
+  # @return [Bool] true if successful, e.g. no errors, compliant if uprated
+  def apply_thermal_bridging(model: nil, tbd_option: 'none')
+    return false unless model.is_a?(OpenStudio::Model::Model)
+    return false unless tbd_option.respond_to?(:to_s)
+
+    tbd_option = tbd_option.to_s
+    # 4x options:
+    #  - 'none' (TBD is ignored)
+    #  - derate using 'bad' PSI factors (BTAP-costed)
+    #  - derate using 'good' PSI factors (BTAP-costed)
+    #  - 'uprate' (then derate), i.e. iterative process (BTAP-costed)
+    ok = tbd_option == 'bad' || tbd_option == 'good' || tbd_option == 'uprate'
+    return true  if tbd_option == 'none'
+    return false unless ok
+
+    argh          = {} # BTAP/TBD arguments
+    argh[:walls ] = { uo: nil }
+    argh[:floors] = { uo: nil }
+    argh[:roofs ] = { uo: nil }
+
+    if tbd_option == 'uprate'
+      argh[:walls  ][:ut] = nil
+      argh[:floors ][:ut] = nil
+      argh[:roofs  ][:ut] = nil
+    elsif tbd_option == 'good'
+      argh[:quality] = :good
+    end    # default == :bad
+
+    @tbd = BTAP::Bridging.new(model, argh)
+
+    true
   end
 
   # @param necb_ref_hp [Bool] if true, NECB reference model rules for heat pumps will be used.
