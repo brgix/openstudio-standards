@@ -18,13 +18,11 @@ class NECB_TBD_Tests < Minitest::Test
     @test_passed = true
 
     #Range of test options.
-    # @templates = [
-    #   'NECB2011',
-    #   'NECB2015',
-    #   'NECB2017'
-    # ]
-
-    @templates = ['NECB2011']
+    @templates = [
+      'NECB2011',
+      # 'NECB2015',
+      # 'NECB2017'
+    ]
 
     @epws = ['CAN_AB_Banff.CS.711220_CWEC2016.epw']
 
@@ -55,8 +53,10 @@ class NECB_TBD_Tests < Minitest::Test
     #   lib/openstudio-standards/btap/bridging.rb
     #
     # Otherwise, :bad vs :good PSI factor sets refer to costed BTAP details.
-    @options = ['none', 'bad', 'good', 'uprate']
-    # @options = ['uprate']
+    @options = ['none',
+                'bad',
+                'good',
+                'uprate']
 
     fdback = []
     fdback << ""

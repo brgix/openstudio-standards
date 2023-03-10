@@ -245,7 +245,7 @@ module BTAP
 
     # A construction sub-variant is identified strictly by its Uo factor:
     #
-    #   e.g. :314 describes a Uo factor of 0.314 W/m2.K
+    #   e.g. "314" describes a Uo factor of 0.314 W/m2.K
     #
     # Listed items for each sub-variant are layer identifiers (for BTAP
     # costing only). For the moment, they are listed integers (but should
@@ -1289,35 +1289,33 @@ module BTAP
       # populate (e.g. invalid argument hash, invalid OpenStudio model).
       return unless self.populate(model, argh)
 
-      # Initialize loop counters, controls and flags.
-      initial = true
-      comply  = false
-      redflag = false
-      perform = :lp    # Low-performance wall constructions
-      quality = :bad   # default PSI factors - BTAP users can reset to :good
-      quality = :good if argh.key?(:quality) && argh[:quality] == :good
-      combo   = "#{perform.to_s}_#{quality.to_s}".to_sym # e.g. :lp_bad
-      args    = {}     # initialize native TBD arguments
+      # Initialize loop controls and flags.
+      initial  = true
+      redflag  = false
+      complies = false
+      comply   = {}     # specific to :walls, :floors & :roofs
+      perform  = :lp    # Low-performance wall constructions (revise, TO-DO ...)
+      quality  = :bad   # default PSI factors - BTAP users can reset to :good
+      quality  = :good if argh.key?(:quality) && argh[:quality] == :good
+      combo    = "#{perform.to_s}_#{quality.to_s}".to_sym # e.g. :lp_bad
+      args     = {}     # initialize native TBD arguments
 
-      # If uprating, initialize native TBD args.
+      # Initialize surface types & native TBD args (if uprating).
       [:walls, :floors, :roofs].each do |stypes|
         next if @model[stypes].empty?
         next unless argh.key?(stypes)
         next unless argh[stypes].key?(:ut)
-
-        ut = argh[stypes][:ut]
-        ok = ut.is_a?(Numeric) && ut.between?(UMIN, UMAX)
-        lgs << "Invalid BTAP/TBD #{stypes} Ut" unless ok
-        next                                   unless ok
 
         stype  = stypes.to_s.chop
         uprate = "uprate_#{stypes.to_s}".to_sym
         option = "#{stype}_option".to_sym
         ut     = "#{stype}_ut".to_sym
 
-        args[uprate] = true
-        args[option] = "ALL #{stype} constructions"
-        args[ut    ] = ut
+        args[uprate  ] = true
+        args[option  ] = "ALL #{stype} constructions"
+        args[ut      ] = argh[stypes][:ut]
+
+        comply[stypes] = false
       end
 
       args[:io_path] = @model[combo] # contents of a "tbd.json" file
@@ -1339,85 +1337,80 @@ module BTAP
             combo   = "#{perform.to_s}_#{quality.to_s}".to_sym
             args[:io_path] = @model[combo]
           end
+
+          # Delete previously-generated TBD args Uo key/value pairs.
+          [:walls, :floors, :roofs].each do |stypes|
+            next unless argh.key?(stypes)
+            next unless argh[stypes].key?(:ut)
+            next unless comply.key?(stypes)
+
+            stype = stypes.to_s.chop
+            uo    = "#{stype}_uo".to_sym
+            args.delete(uo) if args.key?(uo)
+          end
         end
 
-        # Run TBD on cloned OpenStudio models until compliant.
+        # Run TBD on cloned OpenStudio model - compliant combo?
         mdl = OpenStudio::Model::Model.new
         mdl.addObjects(model.toIdfFile.objects)
         TBD.clean!
         res = TBD.process(mdl, args)
 
-        if TBD.status.zero?
-          comply = true
-        else
-          # TBD logs warnings and non/fatal errors when 'processing'
-          # OpenStudio models, often when faced with invalid OpenStudio
-          # objects that may not be necessarily flagged by OpenStudio
-          # Standards and/or by BTAP. Examples could include subsurfaces not
-          # fitting neatly within a host surface, (slight) overlaps between
-          # subsurfaces, 5-sided windows, and so on. TBD typically logs such
-          # non-fatal errors, ignores the faulty object, and otherwise pursues
-          # its calculations. It would usually be up to BTAP users to decide
-          # how to proceed when faced with most non-fatal errors. However,
-          # when it comes ultimately to failed attempts by TBD to 'uprate'
-          # constructions of an OpenStudio model for NECB compliance, BTAP
-          # should definitely skip to the next loop iteration.
-          unable = false
-
-          TBD.logs.each do |log|
-            break if unable
-
-            unable = log[:message].include?("Unable to uprate ")
-            break if unable
-
-            unable = log[:message].include?("Can't uprate "    )
-          end
-
-          if unable
-            # puts # TEMPORARY for debugging
-            # puts "¨¨¨ combo : #{combo}"
-            # puts args[:io_path][:psis]
-            # TBD.logs.each { |lg| puts lg }
-            # puts
-          else
-            comply = true
-          end
+        # Halt all processes if fatal errors raised by TBD (e.g. badly formatted
+        # TBD arguments, poorly-structured OpenStudio models).
+        if TBD.fatal?
+          TBD.logs.each { |lg| lgs << lg[:message] if lg[:level] == TBD::FTL }
+          break
         end
 
-        if comply
-          # Not completely out of the woods yet for uprated cases. Despite
-          # having TBD identify a winning combination, determine if BTAP holds
-          # admissible Uo values (see lines ~245, :uos key). If TBD-estimated
-          # Uo is lower than any of these admissible BTAP Uo factors, then no
-          # commercially available solution has been identified. Reset "comply"
-          # to "false", and loop again (until TBD-reported Uo is above or equal
-          # to any of the BTAP Uo factors). This needs revisiting once BTAP
-          # enables building-type construction selection.
+        complies = true # hypothesis ... attempt to falsify
+        # Check if TBD-uprated Uo factors are valid. If successful, TBD args
+        # Hash has (new) uprated Uo keys/values for :walls, :floors & :roofs.
+        [:walls, :floors, :roofs].each do |stypes|
+          next unless argh.key?(stypes)
+          next unless argh[stypes].key?(:ut)
+          next unless comply.key?(stypes)
+
+          comply[stypes] = false # hypothesis ... attempt to falsify
+          stype = stypes.to_s.chop
+          uo    = "#{stype}_uo".to_sym
+
+          if args.key?(uo)
+            unless args[uo].nil? # shouldn't generate uprated Uo > required Ut
+              ut = argh[stypes][:ut]
+              ok = args[uo] < ut || (args[uo] - ut).abs < 0.001
+              comply[stypes] = true if ok
+            end
+          end
+
+          complies = complies && comply[stypes]
+        end
+
+        if complies
+          # Not completely out of the woods yet if uprating. Despite having TBD
+          # successfully identify uprated Uo factors, determine if BTAP holds
+          # admissible Uo factors (see lines ~257, :uos key). If TBD-uprated
+          # Uo factors are lower than any of these admissible BTAP Uo factors,
+          # then no commercially available solution can been identified. Reset
+          # "complies" to "false", and loop again (until TBD-reported Uo is
+          # above or equal to any of the BTAP Uo factors). This needs revisiting
+          # once BTAP enables building-type construction selection.
           [:walls, :floors, :roofs].each do |stypes|
-            break unless comply
-            next if @model[stypes].empty?
+            next     if @model[stypes].empty?
+            next unless comply.key?(stypes)
+            next unless comply[stypes]
             next unless argh.key?(stypes)
             next unless argh[stypes].key?(:ut)
 
-            ut = argh[stypes][:ut]
+            ut       = argh[stypes][:ut]
             stype_uo = "#{stypes.to_s.chop}_uo".to_sym
-
-            # If successul, TBD adds a building-wide uprated Uo factor to its
-            # native input arguments, e.g. "walls_uo". Reject if missing.
-            comply = false unless args.key?(stype_uo)
-            break          unless args.key?(stype_uo)
-
-            # Safeguard. TBD should never generate uprated Uo > required Ut.
-            ok     = args[stype_uo] < ut || (args[stype_uo] - ut).abs < 0.001
-            comply = false unless ok
-            break          unless ok
 
             # Check if within range of BTAP commercially-available options, for:
             #   - walls, floors & roofs
             #   - specific to each space type
-            @model[:sptypes].each do |id, spacetype|
+            @model[:sptypes].values.each do |spacetype|
               uo_sptype = nil
-              break unless comply
+              next unless comply[stypes]
               next unless spacetype.key?(stypes)
               next unless spacetype[stypes].key?(perform) # :lp or :hp
 
@@ -1425,16 +1418,12 @@ module BTAP
               next unless @@data.key?(construction)
               next unless @@data[construction].key?(:uos)
 
-              # puts
-              # puts "required Uo for #{id} #{stypes}: #{args[stype_uo]}"
-              # puts
-
               @@data[construction][:uos].keys.each do |u|
                 uo = u.to_f / 1000
                 ok = uo < args[stype_uo] || (uo - args[stype_uo]).abs < 0.001
                 next unless ok
 
-                uo_sptype = uo # winning combo?
+                uo_sptype = uo # winning combo
                 @model[:constructions] = {} unless @model.key?(:constructions)
                 @model[:constructions][construction] = { uo: uo }
                 break
@@ -1442,26 +1431,31 @@ module BTAP
 
               next unless uo_sptype.nil?
 
-              comply = false
-              val    = format("%.3f", args[stype_uo])
-              lgs << "... required Uo for #{stypes}: #{val}"
+              comply[stypes] = false
+              complies       = false
             end
           end
         end
 
         # Conditional break from the 'loop'.
-        if comply
+        if complies
           break
         elsif combo == :hp_good
           # i.e. TBD's uprating features are requested, yet unable to locate
-          # either a physically- or economically-plausible Uo + PSI combo.
-          redflag = true
-          comply  = true # (temporarily) signal compliance
-          lgs << "REDFLAG: no Ut-compliant TBD combo"
+          # either a physically- or economically-plausible Uo + PSI combo for
+          # 1x or more surface types (e.g. :walls, :floors and/OR :roofs).
+          redflag  = true
+          complies = true # (temporarily) signal compliance
 
           [:walls, :floors, :roofs].each do |stypes|
+            next     if @model[stypes].empty?
             next unless argh.key?(stypes)
             next unless argh[stypes].key?(:ut)
+            next unless comply.key?(stypes)
+            next     if comply[stypes]
+
+            utee = "(" + format("%.3f", argh[stypes][:ut]) + " W/m^2.K)"
+            lgs << "REDFLAG: no Ut-compliant solution for #{stypes} #{utee}"
 
             groups = {}
             stype  = stypes.to_s.chop
@@ -1522,17 +1516,17 @@ module BTAP
             end
           end
 
-          comply = true # temporary
           break
         end
       end
 
-      @model[:comply ] = comply
-      @model[:perform] = perform
-      @model[:quality] = quality
-      @model[:combo  ] = combo
+      @model[:comply  ] = comply
+      @model[:complies] = complies
+      @model[:perform ] = perform
+      @model[:quality ] = quality
+      @model[:combo   ] = combo
 
-      if comply
+      if complies
         # Run "process" TBD (with last generated args Hash) one last time on
         # "model" (not cloned "mdl"). This may uprate (if applicable ... unless
         # redflagged), then derate BTAP above-grade surface constructions before
@@ -1540,11 +1534,7 @@ module BTAP
         TBD.clean!
         res = TBD.process(model, args)
 
-        # puts # TEMPORARY
-        # puts args[:io_path][:psis]
-        # puts
-
-        @model[:comply  ] = false            if redflag
+        @model[:complies] = false            if redflag
         @model[:io      ] = res[:io      ] # TBD outputs (i.e. "tbd.out.json")
         @model[:surfaces] = res[:surfaces] # TBD derated surface data
         @model[:args    ] = args           # last TBD inputs (i.e. "tbd.json")
@@ -1789,7 +1779,7 @@ module BTAP
         @model[:sptypes][typ][:hp_good] = self.set(hi, :good)
       end
 
-      # Post-TBD validation: BTAP-fed Uo factors, then Ut factors (optional).
+      # BTAP-fed Uo factors.
       [:walls, :floors, :roofs].each do |stypes|
         lgs << "Missing BTAP/TBD #{stypes}"    unless argh.key?(stypes)
         lgs << "Missing BTAP/TBD #{stypes} Uo" unless argh[stypes].key?(:uo)
@@ -1797,26 +1787,19 @@ module BTAP
         return false                           unless argh[stypes].key?(:uo)
         next                                       if @model[stypes].empty?
 
+        uo = argh[stypes][:uo]
+        ok = uo.is_a?(Numeric) && uo.between?(UMIN, UMAX)
+        next if ok
+
         uo = self.minU(model, stypes)
         ok = uo.is_a?(Numeric) && uo.between?(UMIN, UMAX)
-        argh[stypes][:uo] = uo                     if ok
-        next                                       if ok
+        lgs << "Invalid BTAP/TBD #{stypes} Uo" unless ok
+        return false                           unless ok
 
-        lgs << "Invalid BTAP/TBD #{stypes} Uo"
-        return false
-      end
-
-      [:walls, :floors, :roofs].each do |stypes| # Ut optional
+        argh[stypes][:uo] = uo
         next                                   unless argh[stypes].key?(:ut)
-        next                                       if @model[stypes].empty?
 
-        ut = self.minU(model, stypes)
-        ok = ut.is_a?(Numeric) && ut.between?(UMIN, UMAX)
-        argh[stypes][:ut] = ut                     if ok
-        next                                       if ok
-
-        lgs << "Invalid BTAP #{stypes} Ut"
-        return false
+        argh[stypes][:ut] = uo
       end
 
       # Generate native TBD input Hashes for the model, for both :good & :bad
@@ -1934,17 +1917,17 @@ module BTAP
     # @return [Bool] true if valid BTAP/TBD model
     def gen_feedback
       lgs = @feedback[:logs]
-      return false unless @model.key?(:comply)
-      return false unless @model.key?(:args  )
+      return false unless @model.key?(:complies) # all model constructions
+      return false unless @model.key?(:comply  ) # surface type specific ...
+      return false unless @model.key?(:args    ) # TBD inputs + ouputs
 
       args = @model[:args]
 
       # Successfully uprated Uo (if requested).
       [:walls, :floors, :roofs].each do |stypes|
-        break unless @model[:comply]
-
         stype_ut = "#{stypes.to_s.chop}_ut".to_sym
         stype_uo = "#{stypes.to_s.chop}_uo".to_sym
+        next unless @model[:comply].key?(stypes)
         next unless args.key?(stype_ut)
         next unless args.key?(stype_uo)
         next unless @model.key?(stypes)
@@ -1961,11 +1944,9 @@ module BTAP
       end
 
       # Uprating unsuccessful: report min Uo factor per construction.
-      if @model.key?(:constructions)
+      if @model.key?(:constructions) && @model[:comply]
         @model[:constructions].each do |id, construction|
-          break if @model[:comply]
-
-          lgs << "Non-compliant #{id} Uo factor #{construction[:uo]} (W/K.m^2)"
+          lgs << "Non-compliant #{id} Uo #{construction[:uo]} (W/K.m^2)"
         end
       end
 
