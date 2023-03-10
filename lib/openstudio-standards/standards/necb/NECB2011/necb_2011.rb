@@ -898,6 +898,9 @@ class NECB2011 < Standard
   #
   # @param model [OpenStudio::Model::Model] an OpenStudio model
   # @param tbd_option [String] BTAP/TBD option
+  # @param wall_U [Double] wall conductance in W/m2.K (nil by default)
+  # @param floor_U [Double] floor conductance in W/m2.K (nil by default)
+  # @param roof_U [Double] roof conductance in W/m2.K (nil by default)
   #
   # @return [Bool] true if successful, e.g. no errors, compliant if uprated
   def apply_thermal_bridging(model: nil, tbd_option: 'none', wall_U:  nil,
