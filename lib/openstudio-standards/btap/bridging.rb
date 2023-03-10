@@ -1944,8 +1944,10 @@ module BTAP
       end
 
       # Uprating unsuccessful: report min Uo factor per construction.
-      if @model.key?(:constructions) && @model[:comply]
+      if @model.key?(:constructions)
         @model[:constructions].each do |id, construction|
+          break if @model[:complies]
+
           lgs << "Non-compliant #{id} Uo #{construction[:uo]} (W/K.m^2)"
         end
       end
