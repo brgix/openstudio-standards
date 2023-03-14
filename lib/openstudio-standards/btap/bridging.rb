@@ -1461,7 +1461,6 @@ module BTAP
             unless @model[:constructions].key?(construction)
               @model[:constructions][construction]             = {}
               @model[:constructions][construction][:stypes   ] = stypes
-              @model[:constructions][construction][:stypes   ] = stypes
               @model[:constructions][construction][:uo       ] = uo
               @model[:constructions][construction][:compliant] = ok
               @model[:constructions][construction][:surfaces ] = {}
