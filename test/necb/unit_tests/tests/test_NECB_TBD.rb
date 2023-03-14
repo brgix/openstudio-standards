@@ -27,7 +27,7 @@ class NECB_TBD_Tests < Minitest::Test
     @epws = ['CAN_AB_Banff.CS.711220_CWEC2016.epw']
 
     @buildings = [
-        'FullServiceRestaurant',
+        # 'FullServiceRestaurant',
         # 'HighriseApartment',
         # 'Hospital',
         # 'LargeHotel',
@@ -40,7 +40,7 @@ class NECB_TBD_Tests < Minitest::Test
         # 'RetailStandalone',
         # 'SecondarySchool',
         # 'SmallHotel',
-        # 'Warehouse'
+        'Warehouse'
     ]
 
     @fuels = ['Electricity']

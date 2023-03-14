@@ -1461,6 +1461,7 @@ module BTAP
             unless @model[:constructions].key?(construction)
               @model[:constructions][construction]             = {}
               @model[:constructions][construction][:stypes   ] = stypes
+              @model[:constructions][construction][:stypes   ] = stypes
               @model[:constructions][construction][:uo       ] = uo
               @model[:constructions][construction][:compliant] = ok
               @model[:constructions][construction][:surfaces ] = {}
@@ -1932,11 +1933,15 @@ module BTAP
         next if s.construction.get.to_LayeredConstruction.empty?
 
         lc = s.construction.get.to_LayeredConstruction.get
-        next unless lc.nameString.include?(" c tbd")
+        id = lc.nameString
+        next unless id.include?(" c tbd")
 
-        rsi = TBD.rsi(lc, s.filmResistance)
-        rsi = format("%.1f", rsi)
-        lgs << "~ '#{lc.nameString}' derated Rsi: #{rsi} (m2.K/W)"
+        rsi  = TBD.rsi(lc, s.filmResistance)
+        usi  = format("%.3f", 1/rsi)
+        rsi  = format("%.1f", rsi)
+        area = format("%.1f", lc.getNetArea) + " m2"
+
+        lgs << "~ '#{id}' derated Rsi: #{rsi} (m2.K/W) [Usi #{usi} x #{area}]"
       end
 
       # Log PSI factor tallies (per thermal bridge type).
