@@ -159,7 +159,7 @@ class NECB_TBD_Tests < Minitest::Test
                   # st.tbd.tally Hash to extract quantities for costing.
                 end
               end
-            end # @options.each        do |option |
+            end # @options.each        do |option  |
           end   # @fuels.sort.each     do |fuel    |
         end     # @buildings.sort.each do |building|
       end       # @epws.sort.each      do |epw     |

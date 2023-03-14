@@ -1347,7 +1347,6 @@ module BTAP
 
       # Initialize loop controls and flags.
       initial  = true
-      redflag  = false
       complies = false
       comply   = {}     # specific to :walls, :floors & :roofs
       perform  = :lp    # Low-performance wall constructions (revise, TO-DO ...)
@@ -1481,8 +1480,7 @@ module BTAP
         # Final BTAP uprating option, yet non-compliant: TBD's uprating
         # features are requested, yet unable to locate either a physically- or
         # economically-plausible Uo + PSI combo for 1x or more surface types.
-        redflag = true if combo == :hp_good
-        break          if combo == :hp_good
+        break if combo == :hp_good
       end # of loop
 
       # Post-loop steps (if uprating).
