@@ -20,6 +20,7 @@
 require "tbd"
 
 module BTAP
+  # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- #
   module BridgingData
     ##
     # BTAP module/class for Thermal Bridging & Derating (TBD) functionality
@@ -27,6 +28,7 @@ module BTAP
     #
     # @author: Denis Bourgeois
 
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
     # BTAP/TBD data extracted from the BTAP costing spreadsheet:
     #
     #   - range of clear-field Uo factors
@@ -40,6 +42,7 @@ module BTAP
     #      - Building Envelope Thermal Bridging Guide (BETBG)
     #      - ASHRAE RP-1365, ISO-12011, etc.
 
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
     # BTAP costing data (both original BTAP constructions and EVOKE's
     # additions) hold sub-variants based on cladding/veneer, e.g.:
     #
@@ -123,6 +126,7 @@ module BTAP
     UMIN       = 0.010
     UMAX       = 5.678
 
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
     # There are 3 distinct BTAP "building_envelope" classes to enrich with
     # TBD functionality (whether BTAP users choose to activate TBD or not):
     #
@@ -193,11 +197,12 @@ module BTAP
     #
     #   4. A final switch to "good" (HP) details is available (last resort).
     #
-    # If none of the available combinations are sufficient:
+    # If NONE of the available combinations are sufficient:
     #   - TBD red-flags a failed attempt at NECB2017 or NECB2020 compliance
-    #   - TBD keeps iteration #4 Uo + PSI combo, then derates
-    #   - BTAP runs the simulation (giving some performance gap indication)
+    #   - TBD keeps iteration #4 Uo + PSI combo, then derates before a
+    #     BTAP simulation run (giving some performance gap indication)
 
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
     # Hash of admissible Uo factors. If initial BTAP constructions fail to
     # comply when uprating, jump to subsequent high-performance variant,
     # e.g. "STEL1" switches to "STEL2". In most cases, the solution
@@ -222,6 +227,7 @@ module BTAP
     #   - ROOF and (exposed) FLOOR surfaces refer to a single LP/HP selection
     #     respectively. This is expected to change in the future ...
 
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
     # Preset BTAP/TBD wall construction parameters.
     #   :sptypes   : BTAP/TBD Hash of linked NECB SpaceTypes (symbols)
     #   :uos       : BTAP/TBD Hash of associated of Uo sub-variants
@@ -243,6 +249,7 @@ module BTAP
     @@data[FLOOR] = { sptypes: {}, uos: {}           }
     @@data[ROOFS] = { sptypes: {}, uos: {}           }
 
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
     # A construction sub-variant is identified strictly by its Uo factor:
     #
     #   e.g. "314" describes a Uo factor of 0.314 W/m2.K
@@ -320,6 +327,7 @@ module BTAP
     @@data[ROOFS][:uos]["121"] = [ 94, 97,106,150, 93]
     @@data[ROOFS][:uos]["100"] = [ 94, 97,106,106, 93]
 
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
     # In BTAP costing, each NECB building/space type is linked to a default
     # construction set, which holds one of the preceding wall options. This
     # linkage is now extended to OpenStudio models (not just costing),
@@ -333,8 +341,8 @@ module BTAP
     #
     # ... is implemented elsewhere in the BTAP/TBD class. The default BTAP
     # wall construction for :office (fall back) is STEL1. Subsequent PSI
-    # factor selection is based strictly on selected wall construction, e.g.
-    # regardless of selected roof, fenestration. The linkage remains valid
+    # factor selection is based strictly on selected wall construction, i.e.
+    # regardless of selected roof, fenestration, etc. The linkage remains valid
     # for both building and space types (regardless of NECB vintage).
     #
     # The implementation is likely to be revised in the future, yet would
@@ -416,6 +424,7 @@ module BTAP
     @@data[STEL2][:sptypes][:town           ] = {}
     @@data[STEL2][:sptypes][:office         ] = {}
 
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
     # Initialize PSI factor qualities per wall construction.
     @@data.values.each do |construction|
       construction[:bad ] = {}
@@ -721,6 +730,7 @@ module BTAP
     @@data[STEL2][:good][:joint       ] = { psi: 0.100 }
     @@data[STEL2][:good][:transition  ] = { psi: 0.000 }
 
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
     # Extend for BTAP costing.
     @@data.values.each do |construction|
       construction[:good].values.each { |bridge| bridge[:mat] = {} }
@@ -732,363 +742,364 @@ module BTAP
     #
     # NOTE: "0" as a NIL placeholder (no cost associated to thermal bridge).
     @@data[MASS2][ :bad][:id          ] = MASS2_BAD
-    # @@data[MASS2][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
-    # @@data[MASS2][ :bad][:rimjoist    ][:mat]["172"] =  0.250
-    # @@data[MASS2][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[MASS2][ :bad][:head        ][:mat]["139"] =  0.750
-    # @@data[MASS2][ :bad][:jamb        ][:mat]["139"] =  0.750
-    # @@data[MASS2][ :bad][:sill        ][:mat]["139"] =  0.750
-    # @@data[MASS2][ :bad][:corner      ][:mat][  "0"] =  1.000
-    # @@data[MASS2][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASS2][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[MASS2][ :bad][:grade       ][:mat][ "21"] =  1.000
-    # @@data[MASS2][ :bad][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASS2][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASS2][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[MASS2][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
+    @@data[MASS2][ :bad][:rimjoist    ][:mat]["172"] =  0.250
+    @@data[MASS2][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[MASS2][ :bad][:head        ][:mat]["139"] =  0.750
+    @@data[MASS2][ :bad][:jamb        ][:mat]["139"] =  0.750
+    @@data[MASS2][ :bad][:sill        ][:mat]["139"] =  0.750
+    @@data[MASS2][ :bad][:corner      ][:mat][  "0"] =  1.000
+    @@data[MASS2][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASS2][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[MASS2][ :bad][:grade       ][:mat][ "21"] =  1.000
+    @@data[MASS2][ :bad][:grade       ][:mat]["139"] =  0.500
+    @@data[MASS2][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[MASS2][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASS2][:good][:id          ] = MASS2_GOOD
-    # @@data[MASS2][:good][:rimjoist    ][:mat]["189"] =  1.000
-    # @@data[MASS2][:good][:rimjoist    ][:mat]["172"] =  0.500
-    # @@data[MASS2][:good][:parapet     ][:mat][ "57"] =  3.300
-    # @@data[MASS2][:good][:parapet     ][:mat]["139"] =  1.000
-    # @@data[MASS2][:good][:head        ][:mat]["139"] =  0.500
-    # @@data[MASS2][:good][:jamb        ][:mat]["139"] =  0.500
-    # @@data[MASS2][:good][:sill        ][:mat]["139"] =  0.500
-    # @@data[MASS2][:good][:corner      ][:mat][  "0"] =  1.000
-    # @@data[MASS2][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASS2][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[MASS2][:good][:grade       ][:mat]["189"] =  1.000
-    # @@data[MASS2][:good][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASS2][:good][:grade       ][:mat]["192"] =  0.500
-    # @@data[MASS2][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASS2][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[MASS2][:good][:rimjoist    ][:mat]["189"] =  1.000
+    @@data[MASS2][:good][:rimjoist    ][:mat]["172"] =  0.500
+    @@data[MASS2][:good][:parapet     ][:mat][ "57"] =  3.300
+    @@data[MASS2][:good][:parapet     ][:mat]["139"] =  1.000
+    @@data[MASS2][:good][:head        ][:mat]["139"] =  0.500
+    @@data[MASS2][:good][:jamb        ][:mat]["139"] =  0.500
+    @@data[MASS2][:good][:sill        ][:mat]["139"] =  0.500
+    @@data[MASS2][:good][:corner      ][:mat][  "0"] =  1.000
+    @@data[MASS2][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASS2][:good][:party       ][:mat][   ""] =  1.000
+    @@data[MASS2][:good][:grade       ][:mat]["189"] =  1.000
+    @@data[MASS2][:good][:grade       ][:mat]["139"] =  0.500
+    @@data[MASS2][:good][:grade       ][:mat]["192"] =  0.500
+    @@data[MASS2][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[MASS2][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASSB][ :bad][:id          ] = MASSB_BAD
-    # @@data[MASSB][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
-    # @@data[MASSB][ :bad][:rimjoist    ][:mat]["172"] =  0.250
-    # @@data[MASSB][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[MASSB][ :bad][:head        ][:mat]["139"] =  0.750
-    # @@data[MASSB][ :bad][:jamb        ][:mat]["139"] =  0.750
-    # @@data[MASSB][ :bad][:sill        ][:mat]["139"] =  0.750
-    # @@data[MASSB][ :bad][:corner      ][:mat][  "0"] =  1.000
-    # @@data[MASSB][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASSB][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[MASSB][ :bad][:grade       ][:mat][ "21"] =  1.000
-    # @@data[MASSB][ :bad][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASSB][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASSB][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[MASSB][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
+    @@data[MASSB][ :bad][:rimjoist    ][:mat]["172"] =  0.250
+    @@data[MASSB][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[MASSB][ :bad][:head        ][:mat]["139"] =  0.750
+    @@data[MASSB][ :bad][:jamb        ][:mat]["139"] =  0.750
+    @@data[MASSB][ :bad][:sill        ][:mat]["139"] =  0.750
+    @@data[MASSB][ :bad][:corner      ][:mat][  "0"] =  1.000
+    @@data[MASSB][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASSB][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[MASSB][ :bad][:grade       ][:mat][ "21"] =  1.000
+    @@data[MASSB][ :bad][:grade       ][:mat]["139"] =  0.500
+    @@data[MASSB][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[MASSB][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASSB][:good][:id          ] = MASSB_GOOD
-    # @@data[MASSB][:good][:rimjoist    ][:mat]["189"] =  1.000
-    # @@data[MASSB][:good][:rimjoist    ][:mat]["172"] =  0.500
-    # @@data[MASSB][:good][:parapet     ][:mat][ "57"] =  3.300
-    # @@data[MASSB][:good][:parapet     ][:mat]["139"] =  1.000
-    # @@data[MASSB][:good][:head        ][:mat]["139"] =  0.500
-    # @@data[MASSB][:good][:jamb        ][:mat]["139"] =  0.500
-    # @@data[MASSB][:good][:sill        ][:mat]["139"] =  0.500
-    # @@data[MASSB][:good][:corner      ][:mat][  "0"] =  1.000
-    # @@data[MASSB][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASSB][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[MASSB][:good][:grade       ][:mat]["189"] =  1.000
-    # @@data[MASSB][:good][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASSB][:good][:grade       ][:mat]["192"] =  0.500
-    # @@data[MASSB][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASSB][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[MASSB][:good][:rimjoist    ][:mat]["189"] =  1.000
+    @@data[MASSB][:good][:rimjoist    ][:mat]["172"] =  0.500
+    @@data[MASSB][:good][:parapet     ][:mat][ "57"] =  3.300
+    @@data[MASSB][:good][:parapet     ][:mat]["139"] =  1.000
+    @@data[MASSB][:good][:head        ][:mat]["139"] =  0.500
+    @@data[MASSB][:good][:jamb        ][:mat]["139"] =  0.500
+    @@data[MASSB][:good][:sill        ][:mat]["139"] =  0.500
+    @@data[MASSB][:good][:corner      ][:mat][  "0"] =  1.000
+    @@data[MASSB][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASSB][:good][:party       ][:mat][   ""] =  1.000
+    @@data[MASSB][:good][:grade       ][:mat]["189"] =  1.000
+    @@data[MASSB][:good][:grade       ][:mat]["139"] =  0.500
+    @@data[MASSB][:good][:grade       ][:mat]["192"] =  0.500
+    @@data[MASSB][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[MASSB][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASS4][ :bad][:id          ] = MASS4_BAD
-    # @@data[MASS4][ :bad][:rimjoist    ][:mat][  "0"] =  1.000
-    # @@data[MASS4][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[MASS4][ :bad][:head        ][:mat]["139"] =  0.250
-    # @@data[MASS4][ :bad][:jamb        ][:mat]["139"] =  0.250
-    # @@data[MASS4][ :bad][:sill        ][:mat]["139"] =  0.250
-    # @@data[MASS4][ :bad][:corner      ][:mat]["141"] =  1.000
-    # @@data[MASS4][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASS4][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[MASS4][ :bad][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASS4][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASS4][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[MASS4][ :bad][:rimjoist    ][:mat][  "0"] =  1.000
+    @@data[MASS4][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[MASS4][ :bad][:head        ][:mat]["139"] =  0.250
+    @@data[MASS4][ :bad][:jamb        ][:mat]["139"] =  0.250
+    @@data[MASS4][ :bad][:sill        ][:mat]["139"] =  0.250
+    @@data[MASS4][ :bad][:corner      ][:mat]["141"] =  1.000
+    @@data[MASS4][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASS4][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[MASS4][ :bad][:grade       ][:mat]["139"] =  0.500
+    @@data[MASS4][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[MASS4][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASS4][:good][:id          ] = MASS4_GOOD
-    # @@data[MASS4][:good][:rimjoist    ][:mat][  "0"] =  1.000
-    # @@data[MASS4][:good][:parapet     ][:mat][ "57"] =  3.300
-    # @@data[MASS4][:good][:parapet     ][:mat]["139"] =  1.000
-    # @@data[MASS4][:good][:head        ][:mat]["139"] =  0.250
-    # @@data[MASS4][:good][:head        ][:mat]["150"] =  0.083
-    # @@data[MASS4][:good][:jamb        ][:mat]["139"] =  0.250
-    # @@data[MASS4][:good][:jamb        ][:mat]["150"] =  0.083
-    # @@data[MASS4][:good][:sill        ][:mat]["139"] =  0.250
-    # @@data[MASS4][:good][:sill        ][:mat]["150"] =  0.083
-    # @@data[MASS4][:good][:corner      ][:mat]["141"] =  1.250
-    # @@data[MASS4][:good][:balcony     ][:mat][  "0"] =  1.000
-    # @@data[MASS4][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[MASS4][:good][:grade       ][:mat]["192"] =  0.500
-    # @@data[MASS4][:good][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASS4][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASS4][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[MASS4][:good][:rimjoist    ][:mat][  "0"] =  1.000
+    @@data[MASS4][:good][:parapet     ][:mat][ "57"] =  3.300
+    @@data[MASS4][:good][:parapet     ][:mat]["139"] =  1.000
+    @@data[MASS4][:good][:head        ][:mat]["139"] =  0.250
+    @@data[MASS4][:good][:head        ][:mat]["150"] =  0.083
+    @@data[MASS4][:good][:jamb        ][:mat]["139"] =  0.250
+    @@data[MASS4][:good][:jamb        ][:mat]["150"] =  0.083
+    @@data[MASS4][:good][:sill        ][:mat]["139"] =  0.250
+    @@data[MASS4][:good][:sill        ][:mat]["150"] =  0.083
+    @@data[MASS4][:good][:corner      ][:mat]["141"] =  1.250
+    @@data[MASS4][:good][:balcony     ][:mat][  "0"] =  1.000
+    @@data[MASS4][:good][:party       ][:mat][   ""] =  1.000
+    @@data[MASS4][:good][:grade       ][:mat]["192"] =  0.500
+    @@data[MASS4][:good][:grade       ][:mat]["139"] =  0.500
+    @@data[MASS4][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[MASS4][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASS8][ :bad][:id          ] = MASS8_BAD
-    # @@data[MASS8][ :bad][:rimjoist    ][:mat][  "0"] =  1.000
-    # @@data[MASS8][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[MASS8][ :bad][:head        ][:mat]["139"] =  0.250
-    # @@data[MASS8][ :bad][:jamb        ][:mat]["139"] =  0.250
-    # @@data[MASS8][ :bad][:sill        ][:mat]["139"] =  0.250
-    # @@data[MASS8][ :bad][:corner      ][:mat]["141"] =  1.000
-    # @@data[MASS8][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASS8][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[MASS8][ :bad][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASS8][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASS8][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[MASS8][ :bad][:rimjoist    ][:mat][  "0"] =  1.000
+    @@data[MASS8][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[MASS8][ :bad][:head        ][:mat]["139"] =  0.250
+    @@data[MASS8][ :bad][:jamb        ][:mat]["139"] =  0.250
+    @@data[MASS8][ :bad][:sill        ][:mat]["139"] =  0.250
+    @@data[MASS8][ :bad][:corner      ][:mat]["141"] =  1.000
+    @@data[MASS8][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASS8][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[MASS8][ :bad][:grade       ][:mat]["139"] =  0.500
+    @@data[MASS8][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[MASS8][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASS8][:good][:id          ] = MASS8_GOOD
-    # @@data[MASS8][:good][:rimjoist    ][:mat][  "0"] =  1.000
-    # @@data[MASS8][:good][:parapet     ][:mat][ "57"] =  3.300
-    # @@data[MASS8][:good][:parapet     ][:mat]["139"] =  1.000
-    # @@data[MASS8][:good][:head        ][:mat]["139"] =  0.250
-    # @@data[MASS8][:good][:head        ][:mat]["150"] =  0.083
-    # @@data[MASS8][:good][:jamb        ][:mat]["139"] =  0.250
-    # @@data[MASS8][:good][:jamb        ][:mat]["150"] =  0.083
-    # @@data[MASS8][:good][:sill        ][:mat]["139"] =  0.250
-    # @@data[MASS8][:good][:sill        ][:mat]["150"] =  0.083
-    # @@data[MASS8][:good][:corner      ][:mat]["141"] =  1.250
-    # @@data[MASS8][:good][:balcony     ][:mat][  "0"] =  1.000
-    # @@data[MASS8][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[MASS8][:good][:grade       ][:mat]["192"] =  0.500
-    # @@data[MASS8][:good][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASS8][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASS8][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[MASS8][:good][:rimjoist    ][:mat][  "0"] =  1.000
+    @@data[MASS8][:good][:parapet     ][:mat][ "57"] =  3.300
+    @@data[MASS8][:good][:parapet     ][:mat]["139"] =  1.000
+    @@data[MASS8][:good][:head        ][:mat]["139"] =  0.250
+    @@data[MASS8][:good][:head        ][:mat]["150"] =  0.083
+    @@data[MASS8][:good][:jamb        ][:mat]["139"] =  0.250
+    @@data[MASS8][:good][:jamb        ][:mat]["150"] =  0.083
+    @@data[MASS8][:good][:sill        ][:mat]["139"] =  0.250
+    @@data[MASS8][:good][:sill        ][:mat]["150"] =  0.083
+    @@data[MASS8][:good][:corner      ][:mat]["141"] =  1.250
+    @@data[MASS8][:good][:balcony     ][:mat][  "0"] =  1.000
+    @@data[MASS8][:good][:party       ][:mat][   ""] =  1.000
+    @@data[MASS8][:good][:grade       ][:mat]["192"] =  0.500
+    @@data[MASS8][:good][:grade       ][:mat]["139"] =  0.500
+    @@data[MASS8][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[MASS8][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASS6][ :bad][:id          ] = MASS6_BAD
-    # @@data[MASS6][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
-    # @@data[MASS6][ :bad][:rimjoist    ][:mat]["172"] =  0.250
-    # @@data[MASS6][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[MASS6][ :bad][:head        ][:mat]["139"] =  0.750
-    # @@data[MASS6][ :bad][:jamb        ][:mat]["139"] =  0.750
-    # @@data[MASS6][ :bad][:sill        ][:mat]["139"] =  0.750
-    # @@data[MASS6][ :bad][:corner      ][:mat][  "0"] =  1.000
-    # @@data[MASS6][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASS6][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[MASS6][ :bad][:grade       ][:mat][ "21"] =  1.000
-    # @@data[MASS6][ :bad][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASS6][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASS6][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[MASS6][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
+    @@data[MASS6][ :bad][:rimjoist    ][:mat]["172"] =  0.250
+    @@data[MASS6][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[MASS6][ :bad][:head        ][:mat]["139"] =  0.750
+    @@data[MASS6][ :bad][:jamb        ][:mat]["139"] =  0.750
+    @@data[MASS6][ :bad][:sill        ][:mat]["139"] =  0.750
+    @@data[MASS6][ :bad][:corner      ][:mat][  "0"] =  1.000
+    @@data[MASS6][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASS6][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[MASS6][ :bad][:grade       ][:mat][ "21"] =  1.000
+    @@data[MASS6][ :bad][:grade       ][:mat]["139"] =  0.500
+    @@data[MASS6][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[MASS6][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASS6][:good][:id          ] = MASS6_GOOD
-    # @@data[MASS6][:good][:rimjoist    ][:mat]["189"] =  1.000
-    # @@data[MASS6][:good][:rimjoist    ][:mat]["172"] =  0.500
-    # @@data[MASS6][:good][:parapet     ][:mat][ "57"] =  3.300
-    # @@data[MASS6][:good][:parapet     ][:mat]["139"] =  1.000
-    # @@data[MASS6][:good][:head        ][:mat]["139"] =  0.500
-    # @@data[MASS6][:good][:jamb        ][:mat]["139"] =  0.500
-    # @@data[MASS6][:good][:sill        ][:mat]["139"] =  0.500
-    # @@data[MASS6][:good][:corner      ][:mat][  "0"] =  1.000
-    # @@data[MASS6][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASS6][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[MASS6][:good][:grade       ][:mat]["189"] =  1.000
-    # @@data[MASS6][:good][:grade       ][:mat]["139"] =  0.500
-    # @@data[MASS6][:good][:grade       ][:mat]["192"] =  0.500
-    # @@data[MASS6][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASS6][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[MASS6][:good][:rimjoist    ][:mat]["189"] =  1.000
+    @@data[MASS6][:good][:rimjoist    ][:mat]["172"] =  0.500
+    @@data[MASS6][:good][:parapet     ][:mat][ "57"] =  3.300
+    @@data[MASS6][:good][:parapet     ][:mat]["139"] =  1.000
+    @@data[MASS6][:good][:head        ][:mat]["139"] =  0.500
+    @@data[MASS6][:good][:jamb        ][:mat]["139"] =  0.500
+    @@data[MASS6][:good][:sill        ][:mat]["139"] =  0.500
+    @@data[MASS6][:good][:corner      ][:mat][  "0"] =  1.000
+    @@data[MASS6][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASS6][:good][:party       ][:mat][   ""] =  1.000
+    @@data[MASS6][:good][:grade       ][:mat]["189"] =  1.000
+    @@data[MASS6][:good][:grade       ][:mat]["139"] =  0.500
+    @@data[MASS6][:good][:grade       ][:mat]["192"] =  0.500
+    @@data[MASS6][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[MASS6][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASSC][ :bad][:id          ] = MASSC_BAD
-    # @@data[MASSC][ :bad][:rimjoist    ][:mat]["139"] = 10.000
-    # @@data[MASSC][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[MASSC][ :bad][:head        ][:mat]["139"] =  0.750
-    # @@data[MASSC][ :bad][:jamb        ][:mat]["139"] =  0.750
-    # @@data[MASSC][ :bad][:sill        ][:mat]["139"] =  0.750
-    # @@data[MASSC][ :bad][:corner      ][:mat][  "0"] =  1.000
-    # @@data[MASSC][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASSC][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[MASSC][ :bad][:grade       ][:mat]["139"] =  0.000
-    # @@data[MASSC][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASSC][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[MASSC][ :bad][:rimjoist    ][:mat]["139"] = 10.000
+    @@data[MASSC][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[MASSC][ :bad][:head        ][:mat]["139"] =  0.750
+    @@data[MASSC][ :bad][:jamb        ][:mat]["139"] =  0.750
+    @@data[MASSC][ :bad][:sill        ][:mat]["139"] =  0.750
+    @@data[MASSC][ :bad][:corner      ][:mat][  "0"] =  1.000
+    @@data[MASSC][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASSC][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[MASSC][ :bad][:grade       ][:mat]["139"] =  0.000
+    @@data[MASSC][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[MASSC][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[MASSC][:good][:id          ] = MASSC_GOOD
-    # @@data[MASSC][:good][:rimjoist    ][:mat]["172"] =  0.500
-    # @@data[MASSC][:good][:parapet     ][:mat][ "57"] =  3.300
-    # @@data[MASSC][:good][:parapet     ][:mat]["139"] =  1.000
-    # @@data[MASSC][:good][:head        ][:mat]["139"] =  0.500
-    # @@data[MASSC][:good][:jamb        ][:mat]["139"] =  0.500
-    # @@data[MASSC][:good][:sill        ][:mat]["139"] =  0.500
-    # @@data[MASSC][:good][:corner      ][:mat][  "0"] =  1.000
-    # @@data[MASSC][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MASSC][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[MASSC][:good][:grade       ][:mat]["192"] =  1.000
-    # @@data[MASSC][:good][:grade       ][:mat]["139"] =  1.000
-    # @@data[MASSC][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[MASSC][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[MASSC][:good][:rimjoist    ][:mat]["172"] =  0.500
+    @@data[MASSC][:good][:parapet     ][:mat][ "57"] =  3.300
+    @@data[MASSC][:good][:parapet     ][:mat]["139"] =  1.000
+    @@data[MASSC][:good][:head        ][:mat]["139"] =  0.500
+    @@data[MASSC][:good][:jamb        ][:mat]["139"] =  0.500
+    @@data[MASSC][:good][:sill        ][:mat]["139"] =  0.500
+    @@data[MASSC][:good][:corner      ][:mat][  "0"] =  1.000
+    @@data[MASSC][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[MASSC][:good][:party       ][:mat][   ""] =  1.000
+    @@data[MASSC][:good][:grade       ][:mat]["192"] =  1.000
+    @@data[MASSC][:good][:grade       ][:mat]["139"] =  1.000
+    @@data[MASSC][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[MASSC][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[MTAL1][ :bad][:id          ] = MTAL1_BAD
-    # @@data[MTAL1][ :bad][:rimjoist    ][:mat][  "0"] =  1.000
-    # @@data[MTAL1][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[MTAL1][ :bad][:head        ][:mat]["139"] =  1.000
-    # @@data[MTAL1][ :bad][:jamb        ][:mat]["139"] =  1.000
-    # @@data[MTAL1][ :bad][:sill        ][:mat]["139"] =  1.000
-    # @@data[MTAL1][ :bad][:corner      ][:mat]["191"] =  1.000
-    # @@data[MTAL1][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MTAL1][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[MTAL1][ :bad][:grade       ][:mat]["139"] =  0.500
-    # @@data[MTAL1][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[MTAL1][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[MTAL1][ :bad][:rimjoist    ][:mat][  "0"] =  1.000
+    @@data[MTAL1][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[MTAL1][ :bad][:head        ][:mat]["139"] =  1.000
+    @@data[MTAL1][ :bad][:jamb        ][:mat]["139"] =  1.000
+    @@data[MTAL1][ :bad][:sill        ][:mat]["139"] =  1.000
+    @@data[MTAL1][ :bad][:corner      ][:mat]["191"] =  1.000
+    @@data[MTAL1][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[MTAL1][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[MTAL1][ :bad][:grade       ][:mat]["139"] =  0.500
+    @@data[MTAL1][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[MTAL1][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[MTAL1][:good][:id          ] = MTAL1_GOOD
-    # @@data[MTAL1][:good][:rimjoist    ][:mat][  "0"] =  1.000
-    # @@data[MTAL1][:good][:parapet     ][:mat][ "57"] =  3.300
-    # @@data[MTAL1][:good][:parapet     ][:mat]["139"] =  1.000
-    # @@data[MTAL1][:good][:head        ][:mat]["139"] =  0.500
-    # @@data[MTAL1][:good][:jamb        ][:mat]["139"] =  0.500
-    # @@data[MTAL1][:good][:sill        ][:mat]["139"] =  0.500
-    # @@data[MTAL1][:good][:corner      ][:mat]["191"] =  1.000
-    # @@data[MTAL1][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MTAL1][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[MTAL1][:good][:grade       ][:mat]["192"] =  0.500
-    # @@data[MTAL1][:good][:grade       ][:mat]["139"] =  0.500
-    # @@data[MTAL1][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[MTAL1][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[MTAL1][:good][:rimjoist    ][:mat][  "0"] =  1.000
+    @@data[MTAL1][:good][:parapet     ][:mat][ "57"] =  3.300
+    @@data[MTAL1][:good][:parapet     ][:mat]["139"] =  1.000
+    @@data[MTAL1][:good][:head        ][:mat]["139"] =  0.500
+    @@data[MTAL1][:good][:jamb        ][:mat]["139"] =  0.500
+    @@data[MTAL1][:good][:sill        ][:mat]["139"] =  0.500
+    @@data[MTAL1][:good][:corner      ][:mat]["191"] =  1.000
+    @@data[MTAL1][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[MTAL1][:good][:party       ][:mat][   ""] =  1.000
+    @@data[MTAL1][:good][:grade       ][:mat]["192"] =  0.500
+    @@data[MTAL1][:good][:grade       ][:mat]["139"] =  0.500
+    @@data[MTAL1][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[MTAL1][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[MTALD][ :bad][:id          ] = MTALD_BAD
-    # @@data[MTALD][ :bad][:rimjoist    ][:mat][  "0"] =  1.000
-    # @@data[MTALD][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[MTALD][ :bad][:head        ][:mat]["139"] =  1.000
-    # @@data[MTALD][ :bad][:jamb        ][:mat]["139"] =  1.000
-    # @@data[MTALD][ :bad][:sill        ][:mat]["139"] =  1.000
-    # @@data[MTALD][ :bad][:corner      ][:mat]["191"] =  1.000
-    # @@data[MTALD][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MTALD][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[MTALD][ :bad][:grade       ][:mat]["139"] =  0.500
-    # @@data[MTALD][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[MTALD][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[MTALD][ :bad][:rimjoist    ][:mat][  "0"] =  1.000
+    @@data[MTALD][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[MTALD][ :bad][:head        ][:mat]["139"] =  1.000
+    @@data[MTALD][ :bad][:jamb        ][:mat]["139"] =  1.000
+    @@data[MTALD][ :bad][:sill        ][:mat]["139"] =  1.000
+    @@data[MTALD][ :bad][:corner      ][:mat]["191"] =  1.000
+    @@data[MTALD][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[MTALD][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[MTALD][ :bad][:grade       ][:mat]["139"] =  0.500
+    @@data[MTALD][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[MTALD][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[MTALD][:good][:id          ] = MTALD_GOOD
-    # @@data[MTALD][:good][:rimjoist    ][:mat][  "0"] =  1.000
-    # @@data[MTALD][:good][:parapet     ][:mat][ "57"] =  3.300
-    # @@data[MTALD][:good][:parapet     ][:mat]["139"] =  1.000
-    # @@data[MTALD][:good][:head        ][:mat]["139"] =  0.500
-    # @@data[MTALD][:good][:jamb        ][:mat]["139"] =  0.500
-    # @@data[MTALD][:good][:sill        ][:mat]["139"] =  0.500
-    # @@data[MTALD][:good][:corner      ][:mat]["191"] =  1.000
-    # @@data[MTALD][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[MTALD][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[MTALD][:good][:grade       ][:mat]["192"] =  0.500
-    # @@data[MTALD][:good][:grade       ][:mat]["139"] =  0.500
-    # @@data[MTALD][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[MTALD][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[MTALD][:good][:rimjoist    ][:mat][  "0"] =  1.000
+    @@data[MTALD][:good][:parapet     ][:mat][ "57"] =  3.300
+    @@data[MTALD][:good][:parapet     ][:mat]["139"] =  1.000
+    @@data[MTALD][:good][:head        ][:mat]["139"] =  0.500
+    @@data[MTALD][:good][:jamb        ][:mat]["139"] =  0.500
+    @@data[MTALD][:good][:sill        ][:mat]["139"] =  0.500
+    @@data[MTALD][:good][:corner      ][:mat]["191"] =  1.000
+    @@data[MTALD][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[MTALD][:good][:party       ][:mat][   ""] =  1.000
+    @@data[MTALD][:good][:grade       ][:mat]["192"] =  0.500
+    @@data[MTALD][:good][:grade       ][:mat]["139"] =  0.500
+    @@data[MTALD][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[MTALD][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[WOOD5][ :bad][:id          ] = WOOD5_BAD
-    # @@data[WOOD5][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
-    # @@data[WOOD5][ :bad][:rimjoist    ][:mat]["172"] =  0.250
-    # @@data[WOOD5][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[WOOD5][ :bad][:head        ][:mat][  "0"] =  1.000
-    # @@data[WOOD5][ :bad][:jamb        ][:mat][  "0"] =  1.000
-    # @@data[WOOD5][ :bad][:sill        ][:mat][  "0"] =  1.000
-    # @@data[WOOD5][ :bad][:corner      ][:mat][  "0"] =  1.000
-    # @@data[WOOD5][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[WOOD5][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[WOOD5][ :bad][:grade       ][:mat][ "21"] =  1.000
-    # @@data[WOOD5][ :bad][:grade       ][:mat]["139"] =  0.500
-    # @@data[WOOD5][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[WOOD5][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[WOOD5][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
+    @@data[WOOD5][ :bad][:rimjoist    ][:mat]["172"] =  0.250
+    @@data[WOOD5][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[WOOD5][ :bad][:head        ][:mat][  "0"] =  1.000
+    @@data[WOOD5][ :bad][:jamb        ][:mat][  "0"] =  1.000
+    @@data[WOOD5][ :bad][:sill        ][:mat][  "0"] =  1.000
+    @@data[WOOD5][ :bad][:corner      ][:mat][  "0"] =  1.000
+    @@data[WOOD5][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[WOOD5][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[WOOD5][ :bad][:grade       ][:mat][ "21"] =  1.000
+    @@data[WOOD5][ :bad][:grade       ][:mat]["139"] =  0.500
+    @@data[WOOD5][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[WOOD5][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[WOOD5][:good][:id          ] = WOOD5_GOOD
-    # @@data[WOOD5][:good][:rimjoist    ][:mat]["189"] =  1.000
-    # @@data[WOOD5][:good][:rimjoist    ][:mat]["172"] =  0.500
-    # @@data[WOOD5][:good][:parapet     ][:mat]["190"] =  0.500
-    # @@data[WOOD5][:good][:head        ][:mat][  "0"] =  1.000
-    # @@data[WOOD5][:good][:jamb        ][:mat][  "0"] =  1.000
-    # @@data[WOOD5][:good][:sill        ][:mat][  "0"] =  1.000
-    # @@data[WOOD5][:good][:corner      ][:mat][  "0"] =  1.000
-    # @@data[WOOD5][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[WOOD5][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[WOOD5][:good][:grade       ][:mat]["189"] =  1.000
-    # @@data[WOOD5][:good][:grade       ][:mat]["139"] =  0.500
-    # @@data[WOOD5][:good][:grade       ][:mat]["192"] =  0.500
-    # @@data[WOOD5][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[WOOD5][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[WOOD5][:good][:rimjoist    ][:mat]["189"] =  1.000
+    @@data[WOOD5][:good][:rimjoist    ][:mat]["172"] =  0.500
+    @@data[WOOD5][:good][:parapet     ][:mat]["190"] =  0.500
+    @@data[WOOD5][:good][:head        ][:mat][  "0"] =  1.000
+    @@data[WOOD5][:good][:jamb        ][:mat][  "0"] =  1.000
+    @@data[WOOD5][:good][:sill        ][:mat][  "0"] =  1.000
+    @@data[WOOD5][:good][:corner      ][:mat][  "0"] =  1.000
+    @@data[WOOD5][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[WOOD5][:good][:party       ][:mat][   ""] =  1.000
+    @@data[WOOD5][:good][:grade       ][:mat]["189"] =  1.000
+    @@data[WOOD5][:good][:grade       ][:mat]["139"] =  0.500
+    @@data[WOOD5][:good][:grade       ][:mat]["192"] =  0.500
+    @@data[WOOD5][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[WOOD5][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[WOOD7][ :bad][:id          ] = WOOD7_BAD
-    # @@data[WOOD7][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
-    # @@data[WOOD7][ :bad][:rimjoist    ][:mat]["172"] =  0.250
-    # @@data[WOOD7][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[WOOD7][ :bad][:head        ][:mat][  "0"] =  1.000
-    # @@data[WOOD7][ :bad][:jamb        ][:mat][  "0"] =  1.000
-    # @@data[WOOD7][ :bad][:sill        ][:mat][  "0"] =  1.000
-    # @@data[WOOD7][ :bad][:corner      ][:mat][  "0"] =  1.000
-    # @@data[WOOD7][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[WOOD7][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[WOOD7][ :bad][:grade       ][:mat][ "21"] =  1.000
-    # @@data[WOOD7][ :bad][:grade       ][:mat]["139"] =  0.500
-    # @@data[WOOD7][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[WOOD7][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[WOOD7][ :bad][:rimjoist    ][:mat][ "21"] =  1.000
+    @@data[WOOD7][ :bad][:rimjoist    ][:mat]["172"] =  0.250
+    @@data[WOOD7][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[WOOD7][ :bad][:head        ][:mat][  "0"] =  1.000
+    @@data[WOOD7][ :bad][:jamb        ][:mat][  "0"] =  1.000
+    @@data[WOOD7][ :bad][:sill        ][:mat][  "0"] =  1.000
+    @@data[WOOD7][ :bad][:corner      ][:mat][  "0"] =  1.000
+    @@data[WOOD7][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[WOOD7][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[WOOD7][ :bad][:grade       ][:mat][ "21"] =  1.000
+    @@data[WOOD7][ :bad][:grade       ][:mat]["139"] =  0.500
+    @@data[WOOD7][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[WOOD7][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[WOOD7][:good][:id          ] = WOOD7_GOOD
-    # @@data[WOOD7][:good][:rimjoist    ][:mat]["189"] =  1.000
-    # @@data[WOOD7][:good][:rimjoist    ][:mat]["172"] =  0.500
-    # @@data[WOOD7][:good][:parapet     ][:mat]["190"] =  0.500
-    # @@data[WOOD7][:good][:head        ][:mat][  "0"] =  1.000
-    # @@data[WOOD7][:good][:jamb        ][:mat][  "0"] =  1.000
-    # @@data[WOOD7][:good][:sill        ][:mat][  "0"] =  1.000
-    # @@data[WOOD7][:good][:corner      ][:mat][  "0"] =  1.000
-    # @@data[WOOD7][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[WOOD7][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[WOOD7][:good][:grade       ][:mat]["189"] =  1.000
-    # @@data[WOOD7][:good][:grade       ][:mat]["139"] =  0.500
-    # @@data[WOOD7][:good][:grade       ][:mat]["192"] =  0.500
-    # @@data[WOOD7][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[WOOD7][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[WOOD7][:good][:rimjoist    ][:mat]["189"] =  1.000
+    @@data[WOOD7][:good][:rimjoist    ][:mat]["172"] =  0.500
+    @@data[WOOD7][:good][:parapet     ][:mat]["190"] =  0.500
+    @@data[WOOD7][:good][:head        ][:mat][  "0"] =  1.000
+    @@data[WOOD7][:good][:jamb        ][:mat][  "0"] =  1.000
+    @@data[WOOD7][:good][:sill        ][:mat][  "0"] =  1.000
+    @@data[WOOD7][:good][:corner      ][:mat][  "0"] =  1.000
+    @@data[WOOD7][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[WOOD7][:good][:party       ][:mat][   ""] =  1.000
+    @@data[WOOD7][:good][:grade       ][:mat]["189"] =  1.000
+    @@data[WOOD7][:good][:grade       ][:mat]["139"] =  0.500
+    @@data[WOOD7][:good][:grade       ][:mat]["192"] =  0.500
+    @@data[WOOD7][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[WOOD7][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[STEL1][ :bad][:id          ] = STEL1_BAD
-    # @@data[STEL1][ :bad][:rimjoist    ][:mat]["139"] = 10.000
-    # @@data[STEL1][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[STEL1][ :bad][:head        ][:mat]["139"] =  0.750
-    # @@data[STEL1][ :bad][:jamb        ][:mat]["139"] =  0.750
-    # @@data[STEL1][ :bad][:sill        ][:mat]["139"] =  0.750
-    # @@data[STEL1][ :bad][:corner      ][:mat][  "0"] =  1.000
-    # @@data[STEL1][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[STEL1][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[STEL1][ :bad][:grade       ][:mat]["139"] =  1.000
-    # @@data[STEL1][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[STEL1][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[STEL1][ :bad][:rimjoist    ][:mat]["139"] = 10.000
+    @@data[STEL1][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[STEL1][ :bad][:head        ][:mat]["139"] =  0.750
+    @@data[STEL1][ :bad][:jamb        ][:mat]["139"] =  0.750
+    @@data[STEL1][ :bad][:sill        ][:mat]["139"] =  0.750
+    @@data[STEL1][ :bad][:corner      ][:mat][  "0"] =  1.000
+    @@data[STEL1][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[STEL1][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[STEL1][ :bad][:grade       ][:mat]["139"] =  1.000
+    @@data[STEL1][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[STEL1][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[STEL1][:good][:id          ] = STEL1_GOOD
-    # @@data[STEL1][:good][:rimjoist    ][:mat]["172"] =  0.500
-    # @@data[STEL1][:good][:parapet     ][:mat][ "57"] =  3.300
-    # @@data[STEL1][:good][:parapet     ][:mat]["139"] =  1.000
-    # @@data[STEL1][:good][:head        ][:mat]["139"] =  0.500
-    # @@data[STEL1][:good][:jamb        ][:mat]["139"] =  0.500
-    # @@data[STEL1][:good][:sill        ][:mat]["139"] =  0.500
-    # @@data[STEL1][:good][:corner      ][:mat][  "0"] =  1.000
-    # @@data[STEL1][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[STEL1][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[STEL1][:good][:grade       ][:mat]["192"] =  1.000
-    # @@data[STEL1][:good][:grade       ][:mat]["139"] =  1.000
-    # @@data[STEL1][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[STEL1][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[STEL1][:good][:rimjoist    ][:mat]["172"] =  0.500
+    @@data[STEL1][:good][:parapet     ][:mat][ "57"] =  3.300
+    @@data[STEL1][:good][:parapet     ][:mat]["139"] =  1.000
+    @@data[STEL1][:good][:head        ][:mat]["139"] =  0.500
+    @@data[STEL1][:good][:jamb        ][:mat]["139"] =  0.500
+    @@data[STEL1][:good][:sill        ][:mat]["139"] =  0.500
+    @@data[STEL1][:good][:corner      ][:mat][  "0"] =  1.000
+    @@data[STEL1][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[STEL1][:good][:party       ][:mat][   ""] =  1.000
+    @@data[STEL1][:good][:grade       ][:mat]["192"] =  1.000
+    @@data[STEL1][:good][:grade       ][:mat]["139"] =  1.000
+    @@data[STEL1][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[STEL1][:good][:transition  ][:mat][   ""] =  1.000
 
     @@data[STEL2][ :bad][:id          ] = STEL2_BAD
-    # @@data[STEL2][ :bad][:rimjoist    ][:mat]["139"] = 10.000
-    # @@data[STEL2][ :bad][:parapet     ][:mat][  "0"] =  1.000
-    # @@data[STEL2][ :bad][:head        ][:mat]["139"] =  0.750
-    # @@data[STEL2][ :bad][:jamb        ][:mat]["139"] =  0.750
-    # @@data[STEL2][ :bad][:sill        ][:mat]["139"] =  0.750
-    # @@data[STEL2][ :bad][:corner      ][:mat][  "0"] =  1.000
-    # @@data[STEL2][ :bad][:balcony     ][:mat][   ""] =  1.000
-    # @@data[STEL2][ :bad][:party       ][:mat][   ""] =  1.000
-    # @@data[STEL2][ :bad][:grade       ][:mat]["139"] =  1.000
-    # @@data[STEL2][ :bad][:joint       ][:mat][   ""] =  1.000
-    # @@data[STEL2][ :bad][:transition  ][:mat][   ""] =  1.000
+    @@data[STEL2][ :bad][:rimjoist    ][:mat]["139"] = 10.000
+    @@data[STEL2][ :bad][:parapet     ][:mat][  "0"] =  1.000
+    @@data[STEL2][ :bad][:head        ][:mat]["139"] =  0.750
+    @@data[STEL2][ :bad][:jamb        ][:mat]["139"] =  0.750
+    @@data[STEL2][ :bad][:sill        ][:mat]["139"] =  0.750
+    @@data[STEL2][ :bad][:corner      ][:mat][  "0"] =  1.000
+    @@data[STEL2][ :bad][:balcony     ][:mat][   ""] =  1.000
+    @@data[STEL2][ :bad][:party       ][:mat][   ""] =  1.000
+    @@data[STEL2][ :bad][:grade       ][:mat]["139"] =  1.000
+    @@data[STEL2][ :bad][:joint       ][:mat][   ""] =  1.000
+    @@data[STEL2][ :bad][:transition  ][:mat][   ""] =  1.000
 
     @@data[STEL2][:good][:id          ] = STEL2_GOOD
-    # @@data[STEL2][:good][:rimjoist    ][:mat]["172"] =  0.500
-    # @@data[STEL2][:good][:parapet     ][:mat]["206"] =  1.000
-    # @@data[STEL2][:good][:head        ][:mat]["139"] =  0.500
-    # @@data[STEL2][:good][:jamb        ][:mat]["139"] =  0.500
-    # @@data[STEL2][:good][:sill        ][:mat]["139"] =  0.500
-    # @@data[STEL2][:good][:corner      ][:mat][  "0"] =  1.000
-    # @@data[STEL2][:good][:balcony     ][:mat][   ""] =  1.000
-    # @@data[STEL2][:good][:party       ][:mat][   ""] =  1.000
-    # @@data[STEL2][:good][:grade       ][:mat]["192"] =  1.000
-    # @@data[STEL2][:good][:grade       ][:mat]["139"] =  1.000
-    # @@data[STEL2][:good][:joint       ][:mat][   ""] =  1.000
-    # @@data[STEL2][:good][:transition  ][:mat][   ""] =  1.000
+    @@data[STEL2][:good][:rimjoist    ][:mat]["172"] =  0.500
+    @@data[STEL2][:good][:parapet     ][:mat]["206"] =  1.000
+    @@data[STEL2][:good][:head        ][:mat]["139"] =  0.500
+    @@data[STEL2][:good][:jamb        ][:mat]["139"] =  0.500
+    @@data[STEL2][:good][:sill        ][:mat]["139"] =  0.500
+    @@data[STEL2][:good][:corner      ][:mat][  "0"] =  1.000
+    @@data[STEL2][:good][:balcony     ][:mat][   ""] =  1.000
+    @@data[STEL2][:good][:party       ][:mat][   ""] =  1.000
+    @@data[STEL2][:good][:grade       ][:mat]["192"] =  1.000
+    @@data[STEL2][:good][:grade       ][:mat]["139"] =  1.000
+    @@data[STEL2][:good][:joint       ][:mat][   ""] =  1.000
+    @@data[STEL2][:good][:transition  ][:mat][   ""] =  1.000
+    # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
 
     ##
     # Retrieve TBD building/space type keyword.
@@ -1097,8 +1108,8 @@ module BTAP
     # @param stories [Integer] number of building stories
     #
     # @return [Symbol] matching TBD keyword (:office if failure)
-    def sptype(spacetype = "", stories = 999)
-      tp  = spacetype.downcase
+    def spacetype(sptype = "", stories = 999)
+      tp  = sptype.downcase
       typ = :office
 
       return typ unless stories.is_a?(Integer) && stories.between?(1,999)
@@ -1172,21 +1183,63 @@ module BTAP
     ##
     # Retrieve building/space type-specific assembly/construction.
     #
-    # @param spacetype [Symbol] BTAP/TBD spacetype
-    # @param stype [Symbol] :walls, :floors or :roofs
-    # @param performance [Symbol] :lp (low-) or :hp (high-performance)
+    # @param sptype [Symbol] BTAP/TBD spacetype
+    # @param stypes [Symbol] :walls, :floors or :roofs
+    # @param perform [Symbol] :lp (low-) or :hp (high-performance)
     #
     # @return [String] corresponding BTAP construction (STEL2 if fail)
-    def assembly(spacetype = :office, stype = :walls, performance = :hp)
-      return FLOOR if stype == :floors
-      return ROOFS if stype == :roofs
+    def assembly(sptype = :office, stypes = :walls, perform = :hp)
+      return FLOOR if stypes == :floors
+      return ROOFS if stypes == :roofs
 
       @@data.each do |id, construction|
-        next  unless construction.key?(performance)
-        return id if construction[:sptypes].key?(spacetype)
+        next  unless construction.key?(perform)
+        return id if construction[:sptypes].key?(sptype)
       end
 
       STEL2
+    end
+
+    ##
+    # Retrieve nearest building/space type-specific assembly Uo factor.
+    #
+    # @param construction [String] BTAP construction identifier
+    # @param uo [Double] target Uo in W/m2.K
+    #
+    # @return [Double] costed BTAP construction Uo factor (nil if fail)
+    def costed_uo(construction = STEL2, uo = UMAX)
+      construction = STEL2 unless @@data.key?(construction)
+      uo           = UMAX  unless uo.is_a?(Numeric) && uo.between?(UMIN, UMAX)
+
+      @@data[construction][:uos].keys.each do |u|
+        val = u.to_f / 1000
+        return nil unless val.is_a?(Numeric) && val.between?(UMIN, UMAX)
+        return val     if val < uo || (val - uo).abs < 0.001
+      end
+
+      nil
+    end
+
+    ##
+    # Retrieve lowest building/space type-specific assembly Uo factor.
+    #
+    # @param construction [String] BTAP construction identifier
+    #
+    # @return [Double] lowest costed BTAP construction Uo factor (nil if fail)
+    def lowest_uo(construction = STEL2)
+      uos          = []
+      construction = STEL2 unless @@data.key?(construction)
+
+      @@data[construction][:uos].keys.each do |u|
+        val = u.to_f / 1000
+        return nil unless val.is_a?(Numeric) && val.between?(UMIN, UMAX)
+
+        uos << val
+      end
+
+      return uos.min unless uos.empty?
+
+      nil
     end
 
     ##
@@ -1235,6 +1288,7 @@ module BTAP
     end
   end
 
+  # ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- #
   class BTAP::Bridging
     extend BridgingData
 
@@ -1266,16 +1320,18 @@ module BTAP
       @feedback = { logs: [] }
       lgs       = @feedback[:logs]
 
+      argh[:interpolate] = false unless argh.key?(:interpolate)
+
       # BTAP generates free-floating, unoccupied spaces (e.g. attics) as
       # 'indirectly conditioned', rather than 'unconditioned' (e.g. vented
       # attics). For instance, all outdoor-facing sloped roof surfaces of an
       # attic in BTAP are insulated, while attic floors remain uninsulated. BTAP
       # adds to the thermal zone of each unoccupied space a thermostat without
-      # referecing heating and/or cooling setpoint schedule objects. These
+      # referencing heating and/or cooling setpoint schedule objects. These
       # conditions do not meet TBD's internal 'plenum' logic/check (which is
       # based on OpenStudio-Standards), and so TBD ends up tagging such spaces
       # as unconditioned. Consequently, TBD attempts to up/de-rate attic floors
-      # - not sloped roof surfaces. The original BTAP solution will undoubtedly
+      # - not sloped roof surfaces. The upstream BTAP solution will undoubtedly
       # need revision. In the meantime, and in an effort to harmonize TBD with
       # BTAP's current approach, an OpenStudio model may be temporarily
       # modified prior to TBD processes, ensuring that each attic space is
@@ -1302,7 +1358,7 @@ module BTAP
 
       # Initialize surface types & native TBD args (if uprating).
       [:walls, :floors, :roofs].each do |stypes|
-        next if @model[stypes].empty?
+        next     if @model[stypes].empty?
         next unless argh.key?(stypes)
         next unless argh[stypes].key?(:ut)
 
@@ -1316,6 +1372,8 @@ module BTAP
         args[ut      ] = argh[stypes][:ut]
 
         comply[stypes] = false
+
+        @model[:constructions] = {} unless @model.key?(:constructions)
       end
 
       args[:io_path] = @model[combo] # contents of a "tbd.json" file
@@ -1340,14 +1398,15 @@ module BTAP
 
           # Delete previously-generated TBD args Uo key/value pairs.
           [:walls, :floors, :roofs].each do |stypes|
-            next unless argh.key?(stypes)
-            next unless argh[stypes].key?(:ut)
             next unless comply.key?(stypes)
 
-            stype = stypes.to_s.chop
-            uo    = "#{stype}_uo".to_sym
+            uo = "#{stypes.to_s.chop}_uo".to_sym
             args.delete(uo) if args.key?(uo)
           end
+
+          # Reset previous @model constructions.
+          @model.delete(:constructions) if @model.key?(:constructions)
+          @model[:constructions] = {}
         end
 
         # Run TBD on cloned OpenStudio model - compliant combo?
@@ -1363,160 +1422,92 @@ module BTAP
           break
         end
 
-        complies = true # hypothesis ... attempt to falsify
-        # Check if TBD-uprated Uo factors are valid. If successful, TBD args
-        # Hash has (new) uprated Uo keys/values for :walls, :floors & :roofs.
+        complies = true
+        # Check if TBD-uprated Uo factors are valid: TBD args Hash holds (new)
+        # uprated Uo keys/values for :walls, :floors AND/OR :roofs if uprating
+        # is successful. In most cases, uprating tends to fail for wall
+        # constructions rather than roof or floor constructions, due to the
+        # typically larger density of linear thermal bridging per surface type
+        # area. Yet even if all constructions were successfully uprated by TBD,
+        # one must then determine if BTAP holds admissible (i.e. costed)
+        # assembly variants with corresponding Uo factors (see :uos key). If
+        # TBD-uprated Uo factors are lower than any of these admissible BTAP Uo
+        # factors, then no commercially available solution can been identified.
         [:walls, :floors, :roofs].each do |stypes|
-          next unless argh.key?(stypes)
-          next unless argh[stypes].key?(:ut)
-          next unless comply.key?(stypes)
+          next unless comply.key?(stypes) # true only if uprating
 
-          comply[stypes] = false # hypothesis ... attempt to falsify
-          stype = stypes.to_s.chop
-          uo    = "#{stype}_uo".to_sym
+          stype_uo = "#{stypes.to_s.chop}_uo".to_sym
+          target   = nil # uprated Uo (if successful)
+          target   = args[stype_uo] if args.key?(stype_uo) # ... may be nil
 
-          if args.key?(uo)
-            unless args[uo].nil? # shouldn't generate uprated Uo > required Ut
-              ut = argh[stypes][:ut]
-              ok = args[uo] < ut || (args[uo] - ut).abs < 0.001
-              comply[stypes] = true if ok
+          comply[stypes] = true
+
+          @model[stypes].each do |id, surface|
+            next unless surface.key?(:sptype)
+
+            sptype = surface[:sptype] # e.g. :office
+            next unless @model[:sptypes].key?(sptype)
+            next unless @model[:sptypes][sptype].key?(stypes)
+            next unless @model[:sptypes][sptype][stypes].key?(perform)
+
+            construction = @model[:sptypes][sptype][stypes][perform]
+            uo = nil
+            ok = true
+            uo = self.costed_uo(construction, target) if target
+            ok = false  if uo.nil?
+            uo = target if ok && argh[:interpolate]
+            uo = self.lowest_uo(construction) unless ok # fallback
+            comply[stypes] = false            unless ok
+
+            unless @model[:constructions].key?(construction)
+              @model[:constructions][construction]             = {}
+              @model[:constructions][construction][:stypes   ] = stypes
+              @model[:constructions][construction][:uo       ] = uo
+              @model[:constructions][construction][:compliant] = ok
+              @model[:constructions][construction][:surfaces ] = {}
             end
+
+            face = model.getSurfaceByName(id)
+            next if face.empty?
+
+            face = face.get
+            @model[:constructions][construction][:surfaces][id] = face
           end
 
-          complies = complies && comply[stypes]
+          complies = false unless comply[stypes]
         end
 
-        if complies
-          # Not completely out of the woods yet if uprating. Despite having TBD
-          # successfully identify uprated Uo factors, determine if BTAP holds
-          # admissible Uo factors (see lines ~257, :uos key). If TBD-uprated
-          # Uo factors are lower than any of these admissible BTAP Uo factors,
-          # then no commercially available solution can been identified. Reset
-          # "complies" to "false", and loop again (until TBD-reported Uo is
-          # above or equal to any of the BTAP Uo factors). This needs revisiting
-          # once BTAP enables building-type construction selection.
-          [:walls, :floors, :roofs].each do |stypes|
-            next     if @model[stypes].empty?
-            next unless comply.key?(stypes)
-            next unless comply[stypes]
-            next unless argh.key?(stypes)
-            next unless argh[stypes].key?(:ut)
+        break if complies
+        # Final BTAP uprating option, yet non-compliant: TBD's uprating
+        # features are requested, yet unable to locate either a physically- or
+        # economically-plausible Uo + PSI combo for 1x or more surface types.
+        redflag = true if combo == :hp_good
+        break          if combo == :hp_good
+      end # of loop
 
-            ut       = argh[stypes][:ut]
-            stype_uo = "#{stypes.to_s.chop}_uo".to_sym
+      # Post-loop steps (if uprating).
+      [:walls, :floors, :roofs].each do |stypes|
+        next unless comply.key?(stypes) # true only if uprating
 
-            # Check if within range of BTAP commercially-available options, for:
-            #   - walls, floors & roofs
-            #   - specific to each space type
-            @model[:sptypes].values.each do |spacetype|
-              uo_sptype = nil
-              next unless comply[stypes]
-              next unless spacetype.key?(stypes)
-              next unless spacetype[stypes].key?(perform) # :lp or :hp
+        # Cancel uprating request before final derating.
+        stype  = stypes.to_s.chop
+        uprate = "uprate_#{stypes.to_s}".to_sym
+        option = "#{stype}_option".to_sym
+        ut     = "#{stype}_ut".to_sym
+        args.delete(uprate)
+        args.delete(option)
+        args.delete(ut    )
 
-              construction = spacetype[stypes][perform]
-              next unless @@data.key?(construction)
-              next unless @@data[construction].key?(:uos)
+        # Set uprated Uo factor for each BTAP 'deratable' construction.
+        @model[:constructions].each do |id, construction|
+          next unless construction.key?(:stypes   )
+          next unless construction.key?(:uo       )
+          next unless construction.key?(:compliant)
+          next unless construction.key?(:surfaces )
+          next unless construction[:stypes  ] == stypes
+          next     if construction[:surfaces].empty?
 
-              @@data[construction][:uos].keys.each do |u|
-                uo = u.to_f / 1000
-                ok = uo < args[stype_uo] || (uo - args[stype_uo]).abs < 0.001
-                next unless ok
-
-                uo_sptype = uo # winning combo
-                @model[:constructions] = {} unless @model.key?(:constructions)
-                @model[:constructions][construction] = { uo: uo }
-                break
-              end
-
-              next unless uo_sptype.nil?
-
-              comply[stypes] = false
-              complies       = false
-            end
-          end
-        end
-
-        # Conditional break from the 'loop'.
-        if complies
-          break
-        elsif combo == :hp_good
-          # i.e. TBD's uprating features are requested, yet unable to locate
-          # either a physically- or economically-plausible Uo + PSI combo for
-          # 1x or more surface types (e.g. :walls, :floors and/OR :roofs).
-          redflag  = true
-          complies = true # (temporarily) signal compliance
-
-          [:walls, :floors, :roofs].each do |stypes|
-            next     if @model[stypes].empty?
-            next unless argh.key?(stypes)
-            next unless argh[stypes].key?(:ut)
-            next unless comply.key?(stypes)
-            next     if comply[stypes]
-
-            utee = "(" + format("%.3f", argh[stypes][:ut]) + " W/m^2.K)"
-            lgs << "REDFLAG: no Ut-compliant solution for #{stypes} #{utee}"
-
-            groups = {}
-            stype  = stypes.to_s.chop
-            uprate = "uprate_#{stypes.to_s}".to_sym
-            option = "#{stype}_option".to_sym
-            ut     = "#{stype}_ut".to_sym
-
-            # Cancel uprating request before derating.
-            args.delete(uprate)
-            args.delete(option)
-            args.delete(ut    )
-
-            # Group BTAP constructions based on lowest Uo factors e.g.:
-            #  - 0.130 for WOOD7
-            #  - 0.080 for STEL2
-            #  - 0.100 for all ROOFS
-            @model[stypes].each do |id, type|
-              next unless type.key?(:sptype)
-
-              spacetype = type[:sptype] # e.g. :office
-              next unless @model[:sptypes].key?(spacetype)
-              next unless @model[:sptypes][spacetype].key?(stypes)
-              next unless @model[:sptypes][spacetype][stypes].key?(perform)
-
-              construction = @model[:sptypes][spacetype][stypes][perform]
-              next unless @@data.key?(construction)
-              next unless @@data[construction].key?(:uos)
-
-              uos = []
-              @@data[construction][:uos].keys.each { |u| uos << u.to_f / 1000 }
-              uo  = uos.min
-              @model[:constructions] = {} unless @model.key?(:constructions)
-              @model[:constructions][construction] = { uo: uo }
-
-              exists = groups.key?(construction)
-              groups[construction] = { uo: uo, faces: [] } unless exists
-              surface = model.getSurfaceByName(id)
-              next if surface.empty?
-
-              groups[construction][:faces] << surface.get
-            end
-
-            groups.each do |id, group|
-              # puts
-              # puts "#{id} : #{stypes} : #{group[:uo]}: #{group[:faces].size}x"
-              # group[:faces].each { |s| puts s.nameString }
-              sss = BTAP::Geometry::Surfaces.set_surfaces_construction_conductance(group[:faces], group[:uo])
-              # puts
-              #
-              # sss.each do |ssss|
-              #   lc = ssss.construction.get.to_LayeredConstruction.get
-              #   usi = 1 / TBD.rsi(lc, ssss.filmResistance)
-              #   puts "#{ssss.construction.get.nameString} : #{usi}"
-              # end
-              #
-              # puts "~~~~~~~~~~"
-              # puts
-            end
-          end
-
-          break
+          BTAP::Geometry::Surfaces.set_surfaces_construction_conductance(construction[:surfaces].values, construction[:uo])
         end
       end
 
@@ -1526,22 +1517,17 @@ module BTAP
       @model[:quality ] = quality
       @model[:combo   ] = combo
 
-      if complies
-        # Run "process" TBD (with last generated args Hash) one last time on
-        # "model" (not cloned "mdl"). This may uprate (if applicable ... unless
-        # redflagged), then derate BTAP above-grade surface constructions before
-        # simulation.
-        TBD.clean!
-        res = TBD.process(model, args)
+      # Run "process" TBD one last time, on "model" (not cloned "mdl").
+      TBD.clean!
+      res = TBD.process(model, args)
 
-        @model[:complies] = false            if redflag
-        @model[:io      ] = res[:io      ] # TBD outputs (i.e. "tbd.out.json")
-        @model[:surfaces] = res[:surfaces] # TBD derated surface data
-        @model[:args    ] = args           # last TBD inputs (i.e. "tbd.json")
+      @model[:io      ] = res[:io      ] # TBD outputs (i.e. "tbd.out.json")
+      @model[:surfaces] = res[:surfaces] # TBD derated surface data
+      @model[:argh    ] = argh           # method argument Hash
+      @model[:args    ] = args           # last TBD inputs (i.e. "tbd.json")
 
-        self.gen_tallies                   # tallies for BTAP costing
-        self.gen_feedback                  # log success messages for BTAP
-      end
+      self.gen_tallies                   # tallies for BTAP costing
+      self.gen_feedback                  # log success messages for BTAP
 
       self.purge_buffer_schedules(model, buffers)
     end
@@ -1684,17 +1670,9 @@ module BTAP
     #
     # @return [Bool] true if valid (check @feedback logs if false)
     def populate(model = nil, argh = {})
-      lgs    = @feedback[:logs]
       cl     = OpenStudio::Model::Model
       args   = { option: "(non thermal bridging)" }    # for initial TBD dry run
-
-      # Pre-TBD BTAP validatation.
-      lgs << "Invalid BTAP/TBD feedback" unless @feedback.is_a?(Hash)
-      lgs << "Missing BTAP/TBD logs"     unless @feedback.key?(:logs)
-      lgs << "Invalid BTAP/TBD logs"     unless @feedback[:logs].is_a?(Array)
-      return false unless @feedback.is_a?(Hash)
-      return false unless @feedback.key?(:logs)
-      return false unless @feedback[:logs].is_a?(Array)
+      lgs    = @feedback[:logs]
 
       lgs << "Invalid OpenStudio model to de/up-rate" unless model.is_a?(cl)
       lgs << "Invalid BTAP/TBD argument Hash"         unless argh.is_a?(Hash)
@@ -1714,7 +1692,7 @@ module BTAP
       @model[:spaces ] = {}
       @model[:sptypes] = {}
 
-      # Run TBD on cloned OpenStudio models (dry run).
+      # Run TBD on a cloned OpenStudio model (dry run).
       mdl      = OpenStudio::Model::Model.new
       mdl.addObjects(model.toIdfFile.objects)
       TBD.clean!
@@ -1744,10 +1722,10 @@ module BTAP
         stypes = :roofs  if surface[:type] == :ceiling
         next unless stypes == :walls || stypes == :floors || stypes == :roofs
 
-        space     = surface[:space].nameString
-        spacetype = surface[:stype].nameString if surface.key?(:stype)
-        spacetype = ""                     unless surface.key?(:stype)
-        typ       = self.sptype(spacetype, @model[:stories]) # e.g. :office
+        space  = surface[:space].nameString
+        sptype = surface[:stype].nameString if surface.key?(:stype)
+        sptype = ""                     unless surface.key?(:stype)
+        typ    = self.spacetype(sptype, @model[:stories]) # e.g. :office
 
         # Keep track of individual surface's space and spacetype keyword.
         @model[stypes][id]          = {}
@@ -1756,12 +1734,12 @@ module BTAP
 
         # Keep track of individual spaces and spacetypes.
         exists = @model[:spaces].key?(space)
-        @model[:spaces][space]          = {}        unless exists
-        @model[:spaces][space][:sptype] = typ       unless exists
+        @model[:spaces][space]          = {}     unless exists
+        @model[:spaces][space][:sptype] = typ    unless exists
 
         exists = @model[:sptypes].key?(typ)
-        @model[:sptypes][typ ]          = {}        unless exists
-        @model[:sptypes][typ ][:sptype] = spacetype unless exists
+        @model[:sptypes][typ ]          = {}     unless exists
+        @model[:sptypes][typ ][:sptype] = sptype unless exists
         next if @model[:sptypes][typ].key?(stypes)
 
         # Low- vs Hi-Performance BTAP assemblies.
@@ -1779,7 +1757,7 @@ module BTAP
         @model[:sptypes][typ][:hp_good] = self.set(hi, :good)
       end
 
-      # BTAP-fed Uo factors.
+      # BTAP-fed Uo (+ optional Ut) factors.
       [:walls, :floors, :roofs].each do |stypes|
         lgs << "Missing BTAP/TBD #{stypes}"    unless argh.key?(stypes)
         lgs << "Missing BTAP/TBD #{stypes} Uo" unless argh[stypes].key?(:uo)
@@ -1815,7 +1793,7 @@ module BTAP
       @model[:hp_bad ] = self.inputs(:hp, :bad )
       @model[:hp_good] = self.inputs(:hp, :good)
 
-      @model[:osm] = model
+      @model[:osm    ] = model
 
       true
     end
@@ -1830,7 +1808,7 @@ module BTAP
     def inputs(perform = :hp, quality = :good)
       input   = {}
       psis    = {} # construction-specific PSI sets
-      types   = {} # space type-specific references to previous PSI sets
+      sptypes = {} # space type-specific references to previous PSI sets
       perform = :hp   unless perform == :lp  || perform == :hp
       quality = :good unless quality == :bad || quality == :good
 
@@ -1845,10 +1823,10 @@ module BTAP
       # Collect unique BTAP/TBD instances.
       combo = "#{perform.to_s}_#{quality.to_s}".to_sym
 
-      @model[:sptypes].values.each do |type|
-        next unless type.key?(combo)
+      @model[:sptypes].values.each do |sptype|
+        next unless sptype.key?(combo)
 
-        psi = type[combo]
+        psi = sptype[combo]
         next if psis.key?(psi[:id])
 
         psis[ psi[:id] ] = psi
@@ -1861,17 +1839,17 @@ module BTAP
       input[:description] = "TBD input for BTAP"              # append run # ?
       input[:psis       ] = psis.values
 
-      @model[:sptypes].values.each do |type|
-        next unless type.key?(:sptype)
-        next unless type.key?(combo)
-        next if types.key?(type[:sptype])
+      @model[:sptypes].values.each do |sptype|
+        next unless sptype.key?(combo)
+        next unless sptype.key?(:sptype)
+        next if sptypes.key?(sptype[:sptype])
 
-        types[ type[:sptype] ] = { psi: type[combo][:id] }
+        sptypes[ sptype[:sptype] ] = { psi: sptype[combo][:id] }
       end
 
-      types.each do |id, type|
+      sptypes.each do |id, sptype|
         input[:spacetypes] = [] unless input.key?(:spacetypes)
-        input[:spacetypes] << { id: id, psi: type[:psi] }
+        input[:spacetypes] << { id: id, psi: sptype[:psi] }
       end
 
       input[:building] = { psi: building[:id] }
@@ -1919,36 +1897,34 @@ module BTAP
       lgs = @feedback[:logs]
       return false unless @model.key?(:complies) # all model constructions
       return false unless @model.key?(:comply  ) # surface type specific ...
-      return false unless @model.key?(:args    ) # TBD inputs + ouputs
+      return false unless @model.key?(:argh    ) # BTAP/TBD inputs + ouputs
 
-      args = @model[:args]
+      argh = @model[:argh]
 
-      # Successfully uprated Uo (if requested).
+      # Uprating. Report first on surface types (compliant or not).
       [:walls, :floors, :roofs].each do |stypes|
-        stype_ut = "#{stypes.to_s.chop}_ut".to_sym
-        stype_uo = "#{stypes.to_s.chop}_uo".to_sym
         next unless @model[:comply].key?(stypes)
-        next unless args.key?(stype_ut)
-        next unless args.key?(stype_uo)
-        next unless @model.key?(stypes)
-        next     if @model[stypes].empty?
 
-        ut = args[stype_ut]
-        uo = args[stype_uo]
-        next unless ut.is_a?(Numeric)
-        next unless uo.is_a?(Numeric)
+        ut  = format("%.3f", argh[stypes][:ut])
+        lg  = "Compliant "         if @model[:comply][stypes]
+        lg  = "Non-compliant " unless @model[:comply][stypes]
+        lg += "#{stypes}: Ut #{ut} W/m2.K"
+        lgs << lg
 
-        ut = format("%.3f", ut)
-        uo = format("%.3f", uo)
-        lgs << "Compliant #{stypes}: Uo #{uo} vs Ut #{ut} W/m2.K"
-      end
-
-      # Uprating unsuccessful: report min Uo factor per construction.
-      if @model.key?(:constructions)
+        # Report then on required Uo factor per construction (compliant or not).
         @model[:constructions].each do |id, construction|
-          break if @model[:complies]
+          next unless construction.key?(:stypes   )
+          next unless construction.key?(:uo       )
+          next unless construction.key?(:compliant)
+          next unless construction.key?(:surfaces )
+          next unless construction[:stypes  ] == stypes
+          next     if construction[:surfaces].empty?
 
-          lgs << "Non-compliant #{id} Uo #{construction[:uo]} (W/K.m^2)"
+          uo  = format("%.3f", construction[:uo])
+          lg  = "   Compliant "         if construction[:compliant]
+          lg  = "   Non-compliant " unless construction[:compliant]
+          lg += "#{id} Uo #{uo} (W/K.m2)"
+          lgs << lg
         end
       end
 
@@ -1962,7 +1938,7 @@ module BTAP
 
         rsi = TBD.rsi(lc, s.filmResistance)
         rsi = format("%.1f", rsi)
-        lgs << "~~ '#{lc.nameString}' derated Rsi: #{rsi} (m^2.K/W)"
+        lgs << "~ '#{lc.nameString}' derated Rsi: #{rsi} (m2.K/W)"
       end
 
       # Log PSI factor tallies (per thermal bridge type).
@@ -1984,6 +1960,7 @@ module BTAP
   end
 end
 
+# ----- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----- #
 # NOTE: BTAP supports Uo variants for each of the aforementioned wall
 #       constructions, e.g. meeting NECB2011 and NECB2015 prescriptive "Uo"
 #       requirements for each NECB climate zone. By definition, these Uo
@@ -1993,7 +1970,7 @@ end
 #       are indeed a handful of general, qualitative requirements (those of the
 #       MNECB1997) that would make NECB2011- and NECB2015-compliant buildings
 #       slightly better than BTAPPRE1980 "bottom-of-the-barrel" construction,
-#       but lilely not any better than circa 1990s "run-of-the-mill" commercial
+#       but likely not any better than circa 1990s "run-of-the-mill" commercial
 #       construction. Currently, BTAP does not assess the impact of MAJOR
 #       thermal bridging for vintages < NECB2017. But ideally it SHOULD, if the
 #       goal remains a fair assessment of the (relative) contribution of more
@@ -2063,7 +2040,9 @@ end
 #       default fenestration layout. As a result, BTAP/TBD presumes continuous
 #       shelf angles, offset by the height difference between slab edge and
 #       window head. Loose lintels (included in the clear field costing, $/m2)
-#       should be limited to those above doors (TO-DO).
+#       should be limited to those above doors (TO-DO). A more flexible, general
+#       solution would be required for 3rd-party OpenStudio models (without
+#       strip windows as a basic fenestration layout).
 #
 # NOTE: BTAP costing: In addition to the listed items for parapets as MAJOR
 #       thermal bridges (eventually generating an overall $ per linear meter),
