@@ -1940,7 +1940,7 @@ module BTAP
         rsi  = format("%.1f", rsi)
         area = format("%.1f", lc.getNetArea) + " m2"
 
-        lgs << "~ '#{id}' derated Rsi: #{rsi} (m2.K/W) [Usi #{usi} x #{area}]"
+        lgs << "~ '#{id}' derated Rsi: #{rsi} [Usi #{usi} x #{area}]"
       end
 
       # Log PSI factor tallies (per thermal bridge type).
