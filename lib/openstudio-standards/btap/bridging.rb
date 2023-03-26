@@ -35,7 +35,7 @@ module BTAP
     #   - range of PSI factors (i.e. MAJOR thermal bridging), e.g. corners
     #   - costing parameters
     #
-    # NOTE: This module is be replaced with roo-based spreadsheet parsing,
+    # NOTE: This module is to be replaced with roo-based spreadsheet parsing,
     #       generating a BTAP costing JSON file. TO DO.
     #
     # Ref: EVOKE BTAP costing spreadsheet modifications (2022), synced with:
@@ -68,14 +68,14 @@ module BTAP
     #
     #   ID    : (layers)
     #   -----   ------------------------------------------
-    #   STEL2 : cladding | board   | wool | frame | gypsum
-    #   WOOD7 : brick    | mineral | wool | frame | gypsum
-    #   MTALD : panel    | polyiso | foam | frame | gypsum
-    #   MASSB : brick    | mineral | cmu  | foam  | gypsum
-    #   MASS8 : precast  | xps     | wool | frame | gypsum
-    #   MASSC : cladding | mineral | cmu  | foam  | gypsum
+    #   STEL2 : cladding | board   | wool | frame | gypsum ... switch from STEL1
+    #   WOOD7 : brick    | mineral | wool | frame | gypsum ... switch from WOOD5
+    #   MTALD : panel    | polyiso | foam | frame | gypsum ... switch from MTAL1
+    #   MASSB : brick    | mineral | cmu  | foam  | gypsum ... switch from MASS2
+    #   MASS8 : precast  | xps     | wool | frame | gypsum ... switch from MASS4
+    #   MASSC : cladding | mineral | cmu  | foam  | gypsum ... switch from MASS6
     #
-    # Paired LPs vs HPs vall variants are critical for 'uprating' cases, e.g.
+    # Paired LPs & HPs vall variants are critical for 'uprating' cases, e.g.
     # NECB2017. See below, and end of this document for additional NOTES.
 
     MASS2      = "BTAP-ExteriorWall-Mass-2"              # LP wall
@@ -149,7 +149,7 @@ module BTAP
     # instead assess prescriptive Ut compliance for vintages NECB2017 and
     # NECB2020, the BTAP/TBD must be set to "uprate" so it can iteratively reset
     # combined Uo & PSI factors towards finding the least expensive, yet
-    # compliant combination. Why? Improved Uo construction variants are
+    # compliant, combination. Why? Improved Uo construction variants are
     # necessarily required, given:
     #
     #   Ut = Uo + ( ∑psi • L )/A + ( ∑khi • n )/A   (ref: rd2.github.io/tbd)
@@ -198,16 +198,13 @@ module BTAP
     #   4. A final switch to "good" (HP) details is available (last resort).
     #
     # If NONE of the available combinations are sufficient:
-    #   - TBD red-flags a failed attempt at NECB2017 or NECB2020 compliance
+    #   - TBD red-flags a failed attempt at e.g. NECB2017 or NECB2020 compliance
     #   - TBD keeps iteration #4 Uo + PSI combo, then derates before a
     #     BTAP simulation run (giving some performance gap indication)
 
     # --- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- --- #
-    # Hash of admissible Uo factors. If initial BTAP constructions fail to
-    # comply when uprating, jump to subsequent high-performance variant,
-    # e.g. "STEL1" switches to "STEL2". In most cases, the solution
-    # prioritizes basic solutions (less $), only opting for HP variants as a
-    # last recourse. There are 3x exceptions:
+    # There are 3x exceptions to the aforementioned iterative solution,
+    # hopefully to correct (TO-DO):
     #
     #   - Steel-framed construction: the selected HP variant has metal
     #     cladding. The only LP steel-framed BTAP option is wood-clad -
@@ -256,7 +253,7 @@ module BTAP
     #
     # Listed items for each sub-variant are layer identifiers (for BTAP
     # costing only). For the moment, they are listed integers (but should
-    # be expanded (e.g. as Hash keys) to hold additional costing metadata,
+    # be expanded - e.g. as Hash keys - to hold additional costing metadata,
     # e.g. $/m2). This should be (soon) removed from BTAP/TBD data.
     #
     # NOTE: Missing gypsum finish for WOOD7 Uo 0.130?
@@ -1990,7 +1987,7 @@ end
 #       Large Buildings. The original intention was to rely on BTAP variants
 #       "Metal-2" and "Metal-3" as HP CW spandrels ACTUALLY achieving NECB
 #       prescriptive targets, which could only be possible in practice at
-#       tremendous cost and effort.
+#       great cost and effort (e.g. a 2nd insulated wall behind the spandrel).
 #
 #       If TBD's uprating calculations (e.g. NECB 2017) were in theory no longer
 #       required, BTAP's treatment of HP CW spandrels could be implemented
@@ -2020,7 +2017,7 @@ end
 #
 #       These added features would simplify the process tremendously. Yet
 #       without admissible CW spandrel U factors down to 0.130 or 0.100 W/m2.K,
-#       TBD's uprating features would necessarily push other wall constructions
+#       TBD's uprating features would necessarily push OTHER wall constructions
 #       to compensate - noticeably for climate zone 7 (or colder). This would
 #       make it MUCH MORE difficult to identify NECB2017 or NECB2020 compliant
 #       combinations of Uo+PSI factors if ever HP CW spandrels were integrated
@@ -2028,23 +2025,25 @@ end
 
 # NOTE: Some of the aforementioned constructions have exterior brick veneer.
 #       For 2-story OpenStudio models with punch windows (i.e. not strip
-#       windows), one would NOT expect a continuous shelf angle along the
+#       windows), one would NOT expect a continuous steel shelf angle along the
 #       intermediate floor slab edge (typically a MAJOR thermal bridge). One
 #       would instead expect loose lintels above punch windows, just as with
-#       doors. Loose lintels usually do not constitute MAJOR thermal bridges.
+#       doors. Loose lintels usually compound heat loss along window head edges,
+#       but are currently considered as factored in the retained PSI factors for
+#       window and door head details (a postulate that likely needs revision).
 #       For taller builings, shelf angles are indeed expected. And if windows
 #       are instead strip windows (not punch windows), then loose lintels would
 #       typically be cast aside in favour of an offset shelf angle (even for
 #       1-story buildings).
 #
 #       Many of the US DOE Commercial Benchmark Building and BTAP models are
-#       1-story or 2-stories in height, yet they all have strip windows as their
+#       1-story or 2-stories in height, yet they ALL have strip windows as their
 #       default fenestration layout. As a result, BTAP/TBD presumes continuous
 #       shelf angles, offset by the height difference between slab edge and
-#       window head. Loose lintels (included in the clear field costing, $/m2)
-#       should be limited to those above doors (TO-DO). A more flexible, general
-#       solution would be required for 3rd-party OpenStudio models (without
-#       strip windows as a basic fenestration layout).
+#       window head. Loose lintels are however included in the clear field
+#       costing ($/m2), yet should be limited to doors (TO-DO). A more flexible,
+#       general solution would be required for 3rd-party OpenStudio models
+#       (without strip windows as a basic fenestration layout).
 #
 # NOTE: BTAP costing: In addition to the listed items for parapets as MAJOR
 #       thermal bridges (eventually generating an overall $ per linear meter),
