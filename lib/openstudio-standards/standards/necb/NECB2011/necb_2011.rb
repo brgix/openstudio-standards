@@ -232,10 +232,12 @@ class NECB2011 < Standard
                                    output_meters: nil,
                                    airloop_economizer_type: nil,
                                    baseline_system_zones_map_option: nil,
-                                   tbd_option: 'none')
+                                   tbd_option: 'none',
+                                   tbd_interpolate: false)
     model = load_building_type_from_library(building_type: building_type)
     return model_apply_standard(model: model,
                                 tbd_option: tbd_option,
+                                tbd_interpolate: tbd_interpolate,
                                 epw_file: epw_file,
                                 sizing_run_dir: sizing_run_dir,
                                 necb_reference_hp: necb_reference_hp,
@@ -309,6 +311,7 @@ class NECB2011 < Standard
   # code versions without modifying the build_protoype_model method or copying it wholesale for a few changes.
   def model_apply_standard(model:,
                            tbd_option: 'none',
+                           tbd_interpolate: false,
                            epw_file:,
                            sizing_run_dir: Dir.pwd,
                            necb_reference_hp: false,
@@ -394,7 +397,12 @@ class NECB2011 < Standard
     apply_fdwr_srr_daylighting(model: model,
                                fdwr_set: fdwr_set,
                                srr_set: srr_set)
-    apply_thermal_bridging(model: model, tbd_option: tbd_option)
+    apply_thermal_bridging(model: model,
+                           tbd_option: tbd_option,
+                           tbd_interpolate: tbd_interpolate,
+                           wall_U: ext_wall_cond,
+                           floor_U: ext_floor_cond,
+                           roof_U: ext_roof_cond)
     apply_auto_zoning(model: model,
                       sizing_run_dir: sizing_run_dir,
                       lights_type: lights_type,
@@ -887,16 +895,23 @@ class NECB2011 < Standard
   end
 
   ##
-  # Optionally uprates, then derates, envelope surfaces due to MAJOR thermal
-  # bridges (e.g. roof parapets, corners, fenestration perimeters). See
-  # lib/openstudio-standards/btap/bridging.rb, which relies on the Thermal
-  # Bridging & Derating (TBD) gem.
+  # (Optionally) uprates, then derates, envelope surface constructions due to
+  # MAJOR thermal bridges (e.g. roof parapets, corners, fenestration
+  # perimeters). See lib/openstudio-standards/btap/bridging.rb, which relies on
+  # the Thermal Bridging & Derating (TBD) gem.
   #
   # @param model [OpenStudio::Model::Model] an OpenStudio model
   # @param tbd_option [String] BTAP/TBD option
+  # @param tbd_interpolate [Bool] true if TBD interpolates between costed Uo
+  # @param wall_U [Double] wall conductance in W/m2.K (nil by default)
+  # @param floor_U [Double] floor conductance in W/m2.K (nil by default)
+  # @param roof_U [Double] roof conductance in W/m2.K (nil by default)
   #
   # @return [Bool] true if successful, e.g. no errors, compliant if uprated
-  def apply_thermal_bridging(model: nil, tbd_option: 'none')
+  def apply_thermal_bridging(model: nil, tbd_option: 'none',
+                                         tbd_interpolate: false, wall_U: nil,
+                                                                 floor_U: nil,
+                                                                 roof_U: nil)
     return false unless model.is_a?(OpenStudio::Model::Model)
     return false unless tbd_option.respond_to?(:to_s)
 
@@ -910,15 +925,19 @@ class NECB2011 < Standard
     return true  if tbd_option == 'none'
     return false unless ok
 
-    argh          = {} # BTAP/TBD arguments
-    argh[:walls ] = { uo: nil }
-    argh[:floors] = { uo: nil }
-    argh[:roofs ] = { uo: nil }
+    argh = {} # BTAP/TBD arguments
+    ok = tbd_interpolate == true || tbd_interpolate == false
+    argh[:interpolate] = tbd_interpolate if ok
+    argh[:interpolate] = false       unless ok
+
+    argh[:walls ] = { uo: wall_U  }
+    argh[:floors] = { uo: floor_U }
+    argh[:roofs ] = { uo: roof_U  }
 
     if tbd_option == 'uprate'
-      argh[:walls  ][:ut] = nil
-      argh[:floors ][:ut] = nil
-      argh[:roofs  ][:ut] = nil
+      argh[:walls  ][:ut] = wall_U
+      argh[:floors ][:ut] = floor_U
+      argh[:roofs  ][:ut] = roof_U
     elsif tbd_option == 'good'
       argh[:quality] = :good
     end    # default == :bad
